@@ -2,6 +2,11 @@ import {canonicalArticle,normalizeTitle,isArticleTitle,entityId,wikidataClaimQid
 
 const api = 'https://en.wikipedia.org/w/api.php';
 const wikidata = 'https://www.wikidata.org/w/api.php';
+const LANGUAGES = new Set(['en','fr','de','ko','tr']);
+export function wikipediaApi(language='en') {
+  if(!LANGUAGES.has(language)) throw new Error('Unsupported Wikipedia language');
+  return 'https://'+language+'.wikipedia.org/w/api.php';
+}
 const inFlight = new Map();
 const cache = new Map();
 const MAX_CACHE = 48;
@@ -14,7 +19,7 @@ export function apiStats() {return {cached:cache.size,pending:inFlight.size};}
  * Browsers cannot set User-Agent; a production gateway should provide identifying User-Agent.
  */
 export function apiRequest(endpoint, params, {ttl=3600000,fetcher=fetch}={}) {
-  if (![api,wikidata].includes(endpoint)) throw new Error('Only Wikimedia Action APIs are permitted');
+  if (![...([...LANGUAGES].map(wikipediaApi)),wikidata].includes(endpoint)) throw new Error('Only Wikimedia Action APIs are permitted');
   const u = new URL(endpoint);
   for (const [k,v] of Object.entries({...params,action:params.action,format:'json',formatversion:'2',origin:'*'})) u.searchParams.set(k,String(v));
   const key=u.toString();
@@ -49,22 +54,23 @@ export async function searchArticles(term) {
   return (data.query?.search||[]).filter(p=>isArticleTitle(p.title)).map(p=>({title:normalizeTitle(p.title),pageId:p.pageid,snippet:p.snippet?.replace(/<[^>]+>/g,'')||''}));
 }
 /** @param {string} title @param {number|null} [revisionId] */
-export async function loadArticle(title, revisionId = null) {
+export async function loadArticle(title, revisionId = null, language = 'en') {
   if (!isArticleTitle(title)) throw new Error('Invalid article title');
+  const endpoint=wikipediaApi(language);
   const pinned = Number.isSafeInteger(revisionId) && revisionId > 0;
   const source = pinned ? {oldid:String(revisionId)} : {page:normalizeTitle(title),redirects:'1'};
-  const data=await apiRequest(api,{action:'parse',...source,prop:'text|links|revid',disableeditsection:'1',disabletoc:'1'}, {ttl:pinned ? 30*24*60*60_000 : 6*60*60_000});
+  const data=await apiRequest(endpoint,{action:'parse',...source,prop:'text|links|revid',disableeditsection:'1',disabletoc:'1'}, {ttl:pinned ? 30*24*60*60_000 : 6*60*60_000});
   const page=data.parse;
   if (!page || !page.text || !page.revid || !page.pageid || !isArticleTitle(page.title)) throw new Error('Article unavailable or unsupported');
   if (page.text.length > 1_600_000) throw new Error('This Wikipedia page is too large for the current lightweight reader.');
   // Links from parse are not themselves navigable until they appear in the sanitized reader.
   // Kept for verified route construction only; reader UI further restricts clicks to displayed anchors.
   const links=(page.links||[]).filter(l=>l.ns===0 && isArticleTitle(l['*']||l.title)).map(l=>normalizeTitle(l['*']||l.title));
-  const identity=canonicalArticle({title:page.title,pageid:page.pageid,revid:page.revid});
+  const identity=canonicalArticle({title:page.title,pageid:page.pageid,revid:page.revid},language);
   return {identity,html:page.text,links:[...new Set(links)],retrievedAt:new Date().toISOString()};
 }
-export async function pageEntityId(title) {
-  const data=await apiRequest(api,{action:'query',prop:'pageprops',titles:normalizeTitle(title),redirects:'1',ppprop:'wikibase_item'},{ttl:24*60*60_000});
+export async function pageEntityId(title, language = 'en') {
+  const data=await apiRequest(wikipediaApi(language),{action:'query',prop:'pageprops',titles:normalizeTitle(title),redirects:'1',ppprop:'wikibase_item'},{ttl:24*60*60_000});
   return entityId(data.query?.pages?.[0]?.pageprops?.wikibase_item);
 }
 export async function loadEntities(ids) {

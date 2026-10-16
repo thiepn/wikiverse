@@ -30,11 +30,22 @@ function respond(url){
  const p=url.searchParams,action=p.get('action');
  if(action==='query'&&p.get('prop')==='pageprops')return {query:{pages:[{pageprops:{wikibase_item:titleToId[p.get('titles')]||null}}]}};
  if(action==='query'&&p.get('list')==='search')return {query:{search:[{title:'Mathematics',pageid:1,snippet:'Mathematics'},...titles.slice(0,3).map((title,i)=>({title,pageid:10+i,snippet:title}))]}};
+ if(action==='wbgetentities'&&p.get('props')==='sitelinks')return {entities:Object.fromEntries((p.get('ids')||'').split('|').map(id=>[id,{id,sitelinks:{enwiki:{title:idToTitle[id]},frwiki:{title:idToTitle[id]},dewiki:{title:idToTitle[id]},kowiki:{title:idToTitle[id]},trwiki:{title:idToTitle[id]}}}]))};
  if(action==='wbgetentities')return {entities:Object.fromEntries((p.get('ids')||'').split('|').map(id=>[id,entity(id)]))};
  if(action==='parse'){
    const id=Number(p.get('oldid'));const title=id?Object.keys(articles).find(x=>articles[x].revid===id):p.get('page');
    const a=articles[title]||{pageid:900,revid:909,links:['Physics']};
-   return {parse:{title,pageid:a.pageid,revid:a.revid,text:'<p>Source text from '+title+'. '+a.links.map(x=>'<a href="/wiki/'+x+'">'+x+'</a>').join(' ')+'</p>',links:a.links.map(x=>({ns:0,'*':x}))}};
+   const lang=url.hostname.split('.')[0];
+   let html='<p>Source text from '+title+'. '+a.links.map(x=>'<a href="/wiki/'+x+'">'+x+'</a>').join(' ')+'</p>';
+   if(title==='Marie Curie'){
+     html='<p>Marie Curie studied radioactivity through extensive scientific research and experimental observations on chemical materials and physical phenomena.<sup class="reference"><a href="#cite_note-ref1">[1]</a></sup></p>'+
+       '<p>Careful historical documentation records the scientific discoveries described in scholarly sources and published research materials.<sup class="reference"><a href="#cite_note-ref2">[2]</a></sup></p>'+
+       '<p>Experimental studies contributed to important conversations about science and society in numerous educational publications.<sup class="reference"><a href="#cite_note-ref3">[3]</a></sup></p>'+
+       '<ol class="references">'+[1,2,3].map(i=>'<li id="cite_note-ref'+i+'"><span class="reference-text"><a class="external text" href="https://example.org/reference-'+i+'">Research publication '+i+' and historical bibliography</a> — 2021</span></li>').join('')+'</ol>';
+     if(lang==='fr')html='<p>Marie Curie étudiait la radioactivité dans plusieurs laboratoires scientifiques et développait une compréhension nouvelle des phénomènes physiques complexes observés pendant ses recherches.</p>'+
+       '<p>Cette chercheuse utilisait des méthodes expérimentales rigoureuses pour analyser les matériaux et communiquer ses résultats scientifiques au public européen.</p>';
+   }
+   return {parse:{title,pageid:lang==='fr'?1290:a.pageid,revid:lang==='fr'?1291:a.revid,text:html,links:a.links.map(x=>({ns:0,'*':x}))}};
  }
  return {error:{info:'Unmocked API operation: '+action}};
 }
@@ -73,9 +84,26 @@ try{
    await page.getByRole('button',{name:'Order challenge'}).click();
    await page.getByRole('button',{name:/Check order/}).click();await page.getByText(/Not quite/).waitFor();
    await page.getByRole('button',{name:/Reshuffle/}).click();
+   await nav('WikiPolyglot');
+   await page.locator('.learn-pane').first().waitFor();
+   await page.getByRole('textbox',{name:'Captured phrase'}).fill('radioactivité');
+   await page.getByRole('textbox',{name:'Your meaning'}).fill('radioactivity');
+   await page.getByRole('button',{name:/Save to My Universe/}).click();
+   await page.locator('.learn-choices button').first().click();
+   await page.locator('.learn-feedback').first().waitFor();
+   await nav('Source Detective');
+   await page.locator('.learn-citation-choices button').first().waitFor();
+   await page.locator('.learn-citation-choices button').first().click();
+   await page.locator('.learn-feedback').first().waitFor();
+   await page.locator('#review-verdict').selectOption('unreviewed');
+   await page.locator('#review-note').fill('The external citation has not been independently inspected in this mocked browser session.');
+   await page.getByRole('button',{name:/Save private review/}).click();
+   await page.getByText(/Review saved locally/).waitFor();
    await nav('My Universe');await page.getByText(/Located Berlin/).waitFor();
+   await page.getByText(/radioactivité/).waitFor();
+   await page.getByText(/not been independently inspected/).waitFor();
    assert.deepEqual(issues,[],mode+' browser JavaScript exceptions');
-   console.log('PASS Chromium '+mode+': race→mystery→Galaxy→GeoWiki→Chronicle→local history');
+   console.log('PASS Chromium '+mode+': race→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→local history');
    await context.close();
  }
 }finally{await browser?.close();server.kill('SIGTERM');}
