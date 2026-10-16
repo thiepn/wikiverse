@@ -34,7 +34,7 @@ export default function HistoryExplorer({mode,onRead,onComplete}:{mode:Mode;onRe
   try{
    const loaded=await Promise.allSettled(updatedTitles.map(title=>loadPageviews(title,{language:nextLanguage,days:nextDays})));
    if(operation.current!==stamp)return;
-   const good=loaded.filter((r):r is PromiseFulfilledResult<Series>=>r.status==='fulfilled').map(r=>r.value);
+   const good:Series[]=loaded.flatMap(r=>r.status==='fulfilled'?[r.value]:[]);
    if(!good.length)throw new Error(loaded.find(r=>r.status==='rejected')?.reason?.message||'No pageview series are currently available');
    setSeries(good);setPulseRound(0);
    if(good.length<updatedTitles.length)setError('Some articles had no available pageview data. Only verified series are displayed.');
