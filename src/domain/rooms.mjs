@@ -10,6 +10,7 @@ export function validateRoomInvite(input,now=new Date()){
  if(!Number.isFinite(created)||!Number.isFinite(expiry)||expiry<=created||expiry-created>7*86400000||created>now.getTime()+300000||expiry<=now.getTime())throw new Error('Room invitation has expired or contains invalid dates');
  return {version:1,kind:'local-private-trail-invite',nonce:input.nonce,name:input.name.trim(),hostAlias:input.hostAlias.trim(),capacity:input.capacity,createdAt:new Date(created).toISOString(),expiresAt:new Date(expiry).toISOString(),manifest,transport:'portable-code-only',ranked:false,authoritative:false};
 }
+/** @param {any} manifest @param {{name?:string,hostAlias?:string,capacity?:number,nonce?:string,now?:Date}} [options] */
 export function createRoomInvite(manifest,{name,hostAlias,capacity=4,nonce,now=new Date()}={}){
  const createdAt=now.toISOString(),expiresAt=new Date(now.getTime()+86400000).toISOString();
  return validateRoomInvite({version:1,kind:'local-private-trail-invite',nonce,name,hostAlias,capacity,createdAt,expiresAt,manifest},now);
@@ -28,6 +29,7 @@ export function decodeRoomInvite(code,now=new Date()){
   return validateRoomInvite(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)),now);
  }catch(e){throw new Error('Room invitation could not be verified: '+(e?.message||'invalid payload'));}
 }
+/** @param {any} room @param {{alias?:string,now?:Date}} [options] */
 export function localJoinIntent(room,{alias:participantAlias,now=new Date()}={}){
  const invitation=validateRoomInvite(room,now);
  if(!alias(participantAlias)||participantAlias.trim().toLowerCase()===invitation.hostAlias.toLowerCase())throw new Error('Enter a distinct, valid participant nickname');
