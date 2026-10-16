@@ -12,10 +12,23 @@ export function buildLinkAudit(primary,contrast,{seed='article-lab',limit=4}={})
  const choices=[answer,...decoys].sort((a,b)=>hashSeed(seed+':choice:'+a)-hashSeed(seed+':choice:'+b));
  return {kind:'wikipedia-outgoing-link',id:'link:'+articleKey(p)+':'+articleKey(c)+':'+hashSeed(seed+':'+answer),seed,primary:p,contrast:c,answer,choices,sourceUrls:['https://'+p.language+'.wikipedia.org/w/index.php?oldid='+p.revisionId,'https://'+c.language+'.wikipedia.org/w/index.php?oldid='+c.revisionId],scoreAuthority:'pinned-article-links',ranked:false};
 }
-export function gradeLinkAudit(question,value){return question?.kind==='wikipedia-outgoing-link'&&question.choices.includes(value)&&question.answer===value;}
+export function gradeLinkAudit(question,value){return ['wikipedia-outgoing-link','wikipedia-common-link'].includes(question?.kind)&&question.choices.includes(value)&&question.answer===value;}
 export function recordLinkAudit(question,value){
  if(!question?.sourceUrls?.length||!question.choices?.includes(value)||question.scoreAuthority!=='pinned-article-links')throw new Error('Invalid sourced link audit');
  const correct=gradeLinkAudit(question,value);
- return {id:question.id+':'+Date.now(),kind:'wikipedia-outgoing-link',mode:'linklab',primary:question.primary,contrast:question.contrast,selected:value,correct,score:correct?100:0,ranked:false,at:new Date().toISOString(),sourceUrls:[...question.sourceUrls],sourceIds:[articleKey(question.primary),articleKey(question.contrast)],scoringAuthority:'pinned-article-links'};
+ return {id:question.id+':'+Date.now(),kind:question.kind,mode:'linklab',primary:question.primary,contrast:question.contrast,selected:value,correct,score:correct?100:0,ranked:false,at:new Date().toISOString(),sourceUrls:[...question.sourceUrls],sourceIds:[articleKey(question.primary),articleKey(question.contrast)],scoringAuthority:'pinned-article-links'};
 }
-export function linkAuditNextHint(question){return question?.kind==='wikipedia-outgoing-link'?'Inspect the original links of '+question.primary.title+'.':null;}
+export function linkAuditNextHint(question){return question?.kind==='wikipedia-outgoing-link'?'Inspect the original links of '+question.primary.title+'.':question?.kind==='wikipedia-common-link'?'Inspect the outgoing links of both source revisions.':null;}
+
+/** Another distinct challenge: recognize a title that BOTH historical article revisions link to. */
+export function buildCommonLinkAudit(primary,contrast,{seed='common-links',limit=4}={}){
+ const p=primary?.identity,c=contrast?.identity;
+ if(!p||!c||p.language!==c.language||p.pageId===c.pageId||!Number.isSafeInteger(p.revisionId)||!Number.isSafeInteger(c.revisionId))throw new Error('Two distinct canonical revision identities required');
+ const unique=x=>[...new Set((x||[]).map(normalizeTitle).filter(isArticleTitle))];
+ const first=unique(primary.links),second=unique(contrast.links);
+ const common=first.filter(x=>second.includes(x)),oneOnly=[...new Set([...first.filter(x=>!second.includes(x)),...second.filter(x=>!first.includes(x))])];
+ if(!common.length||oneOnly.length<2)throw new Error('Insufficient overlapping and exclusive source links');
+ const answer=[...common].sort((a,b)=>a.localeCompare(b,'en'))[hashSeed(seed+':common')%common.length];
+ const wrong=oneOnly.sort((a,b)=>hashSeed(seed+':false:'+a)-hashSeed(seed+':false:'+b)).slice(0,Math.min(limit-1,oneOnly.length));
+ return {kind:'wikipedia-common-link',id:'shared:'+articleKey(p)+':'+articleKey(c)+':'+hashSeed(seed+':'+answer),seed,primary:p,contrast:c,answer,choices:[answer,...wrong].sort((a,b)=>hashSeed(seed+':sort:'+a)-hashSeed(seed+':sort:'+b)),sourceUrls:['https://'+p.language+'.wikipedia.org/w/index.php?oldid='+p.revisionId,'https://'+c.language+'.wikipedia.org/w/index.php?oldid='+c.revisionId],scoreAuthority:'pinned-article-links',ranked:false};
+}

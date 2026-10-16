@@ -105,6 +105,10 @@ try{
    await page.locator('.linklab-result').waitFor();
    await page.getByRole('button',{name:/Another source question/}).click();
    await page.locator('.linklab-choices button').first().waitFor();
+   await page.getByRole('button',{name:/What do both link to/}).click();
+   await page.locator('.linklab-choices button').first().click();
+   await page.locator('.linklab-result').waitFor();
+
    await nav('WikiMystery');await page.getByRole('button',{name:/Start mystery/}).click();
    const qid=await page.locator('.mystery-grid .eyebrow').first().textContent();
    const answer=idToTitle[(qid||'').match(/Q\d+/)?.[0]];

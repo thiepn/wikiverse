@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {buildLinkAudit,gradeLinkAudit,recordLinkAudit} from '../src/domain/linklab.mjs';
+import {buildLinkAudit,buildCommonLinkAudit,gradeLinkAudit,recordLinkAudit} from '../src/domain/linklab.mjs';
 import {createLinkAudit} from '../src/services/linklab.mjs';
 import {retryDelayMs,validateApiPayload,apiRequest,clearApiCache,loadArticle} from '../src/services/wikimedia.mjs';
 import {parseRoomClientCommand,parseServerRoomEvent,reduceTrustedRoomState,initialRemoteRoomState} from '../src/domain/room-protocol.mjs';
@@ -80,4 +80,17 @@ test('Future room state rejects client-forged scores, cross-room sequences and p
  const closed=reduceTrustedRoomState(s,end);assert.equal(closed.closed,true);
  assert.throws(()=>reduceTrustedRoomState(closed,{...joined,serverSequence:3}));
  assert.throws(()=>reduceTrustedRoomState(s,{...joined,roomNonce:'other',serverSequence:3}));
+});
+
+test('Common-link challenge finds an actually shared outgoing link and excludes all other shared titles from distractors',()=>{
+ const q=buildCommonLinkAudit(math,other,{seed:'shared-source'});
+ assert.equal(q.kind,'wikipedia-common-link');assert.ok(math.links.includes(q.answer)&&other.links.includes(q.answer));
+ assert.ok(q.choices.filter(x=>x!==q.answer).every(x=>(math.links.includes(x)!==other.links.includes(x))));
+ assert.equal(gradeLinkAudit(q,q.answer),true);
+ const record=recordLinkAudit(q,q.answer);assert.equal(record.kind,'wikipedia-common-link');assert.equal(record.scoringAuthority,'pinned-article-links');
+ assert.equal(recordLinkLab(initialProgress(),record).linkLab.length,1);
+});
+test('Common-link question refuses articles without both verified overlap and exclusive alternatives',()=>{
+ assert.throws(()=>buildCommonLinkAudit(math,page('Unrelated',19,800,['Geography','History'])),/Insufficient/);
+ assert.throws(()=>buildCommonLinkAudit(math,page('Identical',20,801,math.links)),/Insufficient/);
 });

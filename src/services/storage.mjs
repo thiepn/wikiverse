@@ -49,7 +49,7 @@ export function recordKnowledgeAttempt(progress,entry){
 
 
 export function recordLinkLab(progress,entry){
- if(entry?.kind!=='wikipedia-outgoing-link'||entry?.mode!=='linklab'||entry?.scoringAuthority!=='pinned-article-links'||entry?.ranked!==false||!Array.isArray(entry.sourceIds)||entry.sourceIds.length!==2||entry?.primary?.pageId===entry?.contrast?.pageId||!Array.isArray(entry.sourceUrls)||entry.sourceUrls.length!==2||typeof entry.correct!=='boolean')throw new Error('Invalid original-source link practice result');
+ if(!['wikipedia-outgoing-link','wikipedia-common-link'].includes(entry?.kind)||entry?.mode!=='linklab'||entry?.scoringAuthority!=='pinned-article-links'||entry?.ranked!==false||!Array.isArray(entry.sourceIds)||entry.sourceIds.length!==2||entry?.primary?.pageId===entry?.contrast?.pageId||!Array.isArray(entry.sourceUrls)||entry.sourceUrls.length!==2||typeof entry.correct!=='boolean')throw new Error('Invalid original-source link practice result');
  return {...progress,linkLab:[entry,...(progress.linkLab||[])].slice(0,120)};
 }
 
