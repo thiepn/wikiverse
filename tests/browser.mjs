@@ -65,7 +65,7 @@ try{
    assert.ok(answer,'Mystery must have a canonical answer identity');
    await page.locator('#answer').fill(answer);await page.getByRole('button',{name:/Submit/}).click();
    await page.getByText('CORRECT',{exact:true}).waitFor();
-   await nav('Knowledge Galaxy');await page.getByText('Verified relationships').waitFor();
+   await nav('Knowledge Galaxy');await page.getByText('Source relationships').waitFor();
    await page.locator('.exp-connection button').first().click();await page.getByText('WIKIDATA ENTITY Q90001').waitFor();
    await nav('GeoWiki');await page.getByRole('button',{name:'Locate a city'}).click();
    await page.locator('.exp-place-options button').first().click();await page.getByText('Correct!',{exact:true}).waitFor();
