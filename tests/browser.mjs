@@ -39,7 +39,7 @@ function respond(url){
  return {error:{info:'Unmocked API operation: '+action}};
 }
 async function ready(url){for(let i=0;i<80;i++){try{const code=await new Promise((resolve,reject)=>{http.get(url,res=>{res.resume();resolve(res.statusCode);}).on('error',reject);});if(code===200)return;}catch{}await new Promise(r=>setTimeout(r,250));}throw new Error('Vite server did not become ready');}
-const server=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4173','--strictPort'],{stdio:['ignore','pipe','pipe']});
+const server=spawn(process.execPath,['./node_modules/vite/bin/vite.js','--host','127.0.0.1','--port','4173','--strictPort'],{stdio:['ignore','pipe','pipe']});
 let logs='';server.stderr.on('data',d=>{logs+=d.toString();});
 let browser;
 try{
@@ -48,7 +48,7 @@ try{
  for(const mode of ['desktop','mobile']){
    const context=await browser.newContext({viewport:mode==='desktop'?{width:1440,height:900}:{width:412,height:915},isMobile:mode==='mobile',hasTouch:mode==='mobile',deviceScaleFactor:mode==='mobile'?2:1});
    await context.route('**/w/api.php?**',route=>route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(respond(new URL(route.request().url())))}));
-   const page=await context.newPage();const issues=[];
+   const page=await context.newPage();page.setDefaultTimeout(12000);const issues=[];
    page.on('pageerror',e=>issues.push(e.message));
    await page.goto('http://127.0.0.1:4173',{waitUntil:'domcontentloaded'});
    await page.getByRole('heading',{name:/Everything is/i}).waitFor();
