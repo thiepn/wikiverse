@@ -26,6 +26,8 @@ jobs:
         run: |
           npm run check:syntax
           npm run build
+      - name: Bounded live Wikimedia API compatibility (read-only)
+        run: node scripts/live-source-probe.mjs
       - name: Chromium desktop and mobile acceptance (mocked Wikimedia upstream)
         run: |
           npm install --no-save --no-audit --no-fund playwright-core

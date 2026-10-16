@@ -1,0 +1,41 @@
+import React,{useMemo,useState,useEffect} from 'react';
+import {studyTopics,readingJourney,reviewQueue,journeyStats,sourceRevisionUrl} from '../domain/study.mjs';
+import './study.css';
+type Article={language:string;pageId:number;revisionId:number;title:string};
+type StudyEntry={key:string;article:Article;note:string;status:string;updatedAt:string;source:string};
+export default function StudyDesk({progress,onRead,onPractice,onSaveNote,onRemoveNote,onDefer}:{progress:any;onRead:(title:string)=>void;onPractice:(title:string,review?:any)=>void;onSaveNote:(x:{article:Article;note:string;status:string})=>void;onRemoveNote:(key:string)=>void;onDefer:(key:string,days:number)=>void}){
+ const [tab,setTab]=useState<'topics'|'reviews'|'journey'>('topics');
+ const [selected,setSelected]=useState<string>(''),[text,setText]=useState(''),[status,setStatus]=useState('open'),[error,setError]=useState('');
+ const [showDeferred,setShowDeferred]=useState(false);
+ const topics=useMemo(()=>studyTopics(progress),[progress]);
+ const queue=useMemo(()=>reviewQueue(progress),[progress]);
+ const journal=useMemo(()=>readingJourney(progress,50),[progress]);
+ const stats=useMemo(()=>journeyStats(progress),[progress]);
+ const chosen=topics.find(x=>x.key===selected)||topics[0];
+ const note=(progress.studyNotes||[]).find((n:StudyEntry)=>n.key===chosen?.key);
+ useEffect(()=>{if(!selected&&topics.length)edit(topics[0]);},[selected,topics.length]);
+ function edit(topic:{key:string;article:Article}){setSelected(topic.key);const previous=(progress.studyNotes||[]).find((n:StudyEntry)=>n.key===topic.key);setText(previous?.note||'');setStatus(previous?.status||'open');setError('');}
+ function save(e:React.FormEvent){e.preventDefault();if(!chosen)return;try{onSaveNote({article:chosen.article,note:text,status});setError('');}catch(e:any){setError(e.message||'The private note could not be saved');}}
+ return <section className="study">
+  <div className="mode-head"><div className="eyebrow">15 / LOCAL KNOWLEDGE CONTINUITY</div><h1>Study Desk<span className="accent">.</span></h1><p>Resume your source-backed discoveries, keep private article notes, and revisit previously missed link questions. No invented knowledge grades, external accounts or tracking.</p></div>
+  <div className="study-stats"><div><small>RESEARCH TOPICS</small><strong>{stats.topics}</strong></div><div><small>ARTICLE VISITS</small><strong>{stats.visits}</strong></div><div><small>PERSONAL NOTES</small><strong>{stats.notes}</strong></div><div><small>REVIEWS DUE</small><strong>{stats.reviewDue}</strong></div></div>
+  <div className="study-tabs" role="group" aria-label="Study Desk sections"><button aria-pressed={tab==='topics'} onClick={()=>setTab('topics')}>Saved topics & notes</button><button aria-pressed={tab==='reviews'} onClick={()=>setTab('reviews')}>Review queue ({stats.reviewDue})</button><button aria-pressed={tab==='journey'} onClick={()=>setTab('journey')}>Reading journey</button></div>
+  {error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
+  {tab==='topics'&&<div className="study-columns"><section className="study-panel"><h2>Article collection</h2><p>From your actual saved pages, reading history, and private notes. Select a topic to continue.</p>
+   {topics.length?<div className="study-topic-list">{topics.map(x=><button className={chosen?.key===x.key?'selected':''} aria-pressed={chosen?.key===x.key} key={x.key} onClick={()=>edit(x)}><strong>{x.article.title}</strong><span>{x.origin.toUpperCase()} · {x.article.language.toUpperCase()} / PAGE {x.article.pageId}</span></button>)}</div>:<p>No original articles have been read or saved on this device. Open Discover and read an article to start a research trail.</p>}
+  </section>
+  <section className="study-panel">{chosen?<><div className="eyebrow">ORIGINAL ARTICLE · PAGE {chosen.article.pageId} · REV {chosen.article.revisionId}</div><h2>{chosen.article.title}</h2>
+   <div className="study-actions"><button onClick={()=>onRead(chosen.article.title)}>Continue reading →</button><button onClick={()=>onPractice(chosen.article.title)}>Practice source links →</button><a href={sourceRevisionUrl(chosen.article)} target="_blank" rel="noreferrer">Pinned source and authors ↗</a></div>
+   <form onSubmit={save}><h3>Private research note</h3><p>This is your own interpretation or learning note. It is not graded or published.</p><label htmlFor="study-note">NOTE</label><textarea id="study-note" rows={6} value={text} onChange={e=>setText(e.target.value)} minLength={3} maxLength={1600} required placeholder="What do you want to remember, compare, or investigate next?"/>
+    <label htmlFor="study-status">YOUR FOLLOW-UP INTENTION</label><select id="study-status" value={status} onChange={e=>setStatus(e.target.value)}><option value="open">Keep active</option><option value="revisit">Add to review queue</option><option value="archived">Archive personal note</option></select>
+    <div className="study-actions"><button type="submit">Save private note →</button>{note&&<button type="button" onClick={()=>{onRemoveNote(note.key);setText('');setStatus('open');}}>Delete note</button>}</div>
+   </form>{note&&<p className="study-confirm">Saved locally · {new Date(note.updatedAt).toLocaleDateString()} · Source revision {note.article.revisionId}</p>}</>:<><h2>Select a source to study</h2><p>Your personalized study workspace will appear here after reading an article.</p></>}</section></div>}
+  {tab==='reviews'&&<section className="study-panel"><h2>Revisit original evidence</h2><p>Reviews come from source-link questions answered incorrectly and notes you explicitly marked for revisit. Selecting a reminder schedules your next check; it never changes the original answer or claims mastery.</p>
+    <label className="study-toggle"><input type="checkbox" checked={showDeferred} onChange={e=>setShowDeferred(e.target.checked)}/> Include deferred items</label>
+    {queue.filter(x=>showDeferred||x.due).length?<div className="study-review-list">{queue.filter(x=>showDeferred||x.due).map(item=><div key={item.key} className="study-review"><div><span className="eyebrow">{item.kind==='note'?'MANUAL ARTICLE NOTE':'MISSED SOURCE QUESTION'}</span><h3>{item.article.title}</h3><p>{item.detail}</p><small>{item.due?'Ready to revisit':'Deferred until '+new Date(item.dueAt).toLocaleDateString()}</small><a href={item.source} rel="noreferrer" target="_blank">Original pinned article ↗</a></div><div className="study-review-actions"><button onClick={()=>item.kind==='linklab'?onPractice(item.article.title,item):onRead(item.article.title)}>{item.kind==='linklab'?'Practice source again':'Review article'} →</button><label htmlFor={'review-delay-'+item.key.replace(/[^a-z0-9]/gi,'-')}>Remind after</label><select id={'review-delay-'+item.key.replace(/[^a-z0-9]/gi,'-')} defaultValue="1" onChange={e=>{e.currentTarget.dataset.days=e.target.value}}><option value="1">1 day</option><option value="3">3 days</option><option value="7">7 days</option><option value="14">14 days</option></select><button onClick={e=>{const select=(e.currentTarget.parentElement?.querySelector('select'));onDefer(item.key,Number(select?.value||1));}}>Schedule revisit</button></div></div>)}</div>:<p>No source reviews are currently due. Continue exploring, or mark a research note for revisit.</p>}
+   </section>}
+  {tab==='journey'&&<section className="study-panel"><h2>Original reading history</h2><p>Each item records the actual Wikipedia page/revision you opened and, where known, the previous article link. Reading is not proof of comprehension.</p>
+   {journal.length?<div className="study-journey">{journal.map(item=><div key={item.id}><span className="eyebrow">{new Date(item.at).toLocaleString('en',{dateStyle:'medium',timeStyle:'short'})} · {item.kind==='source-link'?'FOLLOWED ARTICLE LINK':'OPENED ARTICLE'}</span><h3>{item.article.title}</h3>{item.from&&<p>From {item.from.title} → {item.article.title}</p>}<div className="study-actions"><button onClick={()=>onRead(item.article.title)}>Read again →</button><button onClick={()=>onPractice(item.article.title)}>Practice links →</button><a href={item.source} target="_blank" rel="noreferrer">Pinned source ↗</a></div></div>)}</div>:<p>Read something in Discover to create a local source trail.</p>}
+   </section>}
+ </section>;
+}

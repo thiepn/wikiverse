@@ -101,8 +101,9 @@ try{
    await page.getByRole('button',{name:/Generate sourced question/}).click();
    await page.locator('.linklab-choices button').first().waitFor();
    assert.equal(await page.locator('.linklab-choices button').count(),4,'All link choices from real revisions');
-   await page.locator('.linklab-choices button').first().click();
+   await page.locator('.linklab-choices button').filter({hasText:'Biology'}).click();
    await page.locator('.linklab-result').waitFor();
+   await page.getByText(/Not linked from this revision/).waitFor();
    await page.getByRole('button',{name:/Another source question/}).click();
    await page.locator('.linklab-choices button').first().waitFor();
    await page.getByRole('button',{name:/What do both link to/}).click();
@@ -214,11 +215,32 @@ try{
    await nav('Daily Missions');await page.getByRole('heading',{name:/Daily Missions/}).waitFor();
    assert.equal(await page.locator('.mission-item').count(),5,'Five actionable daily tasks');
    assert.ok((await page.locator('.mission-achievement').count())>=6);
+   await nav('Discover');
+   await page.locator('.topics button').filter({hasText:'Mathematics'}).click();
+   await page.locator('.reader-toolbar h2').getByText('Mathematics').waitFor();
+   await page.locator('.article-body a[data-article-title="Physics"]').click();
+   await page.locator('.reader-toolbar h2').getByText('Physics').waitFor();
+   await nav('Study Desk');
+   await page.getByRole('heading',{name:/Study Desk/}).waitFor();
+   await page.locator('.study-topic-list button').filter({hasText:'Mathematics'}).click();
+   await page.locator('#study-note').fill('Compare mathematics definitions and citation provenance before the next review.');
+   await page.locator('#study-status').selectOption('revisit');
+   await page.getByRole('button',{name:/Save private note/}).click();
+   await page.getByRole('button',{name:/Review queue/}).click();
+   await page.locator('.study-review').first().waitFor();
+   await page.locator('.study-review').filter({hasText:'Recheck original article links'}).getByRole('button',{name:/Practice source again/}).click();
+   await page.getByRole('button',{name:/Revisit original pinned link evidence/}).click();
+   await page.getByText(/ARCHIVED SOURCE REVIEW/).waitFor();
+   await page.locator('.linklab-choices button').first().click();
+   await page.locator('.linklab-result').waitFor();
+   await nav('Study Desk');
+   await page.getByRole('button',{name:/Reading journey/}).click();
+   await page.getByText(/From Mathematics → Physics/).waitFor();
    await nav('My Universe');await page.getByText(/Located Berlin/).waitFor();
    await page.getByText(/radioactivité/).waitFor();
    await page.getByText(/not been independently inspected/).waitFor();
    assert.deepEqual(issues,[],mode+' browser JavaScript exceptions');
-   console.log('PASS Chromium '+mode+': race→Link Lab→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/room/daily→Galaxy statements→missions→local history');
+   console.log('PASS Chromium '+mode+': race→Link Lab→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/room/daily→Galaxy statements→missions→Study Desk source journal/review→local history');
    await context.close();
  }
 }finally{await browser?.close();server.kill('SIGTERM');}

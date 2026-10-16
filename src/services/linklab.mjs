@@ -1,10 +1,11 @@
 import {loadArticle} from './wikimedia.mjs';
-import {STARTERS,hashSeed,normalizeTitle} from '../domain/game.mjs';
+import {STARTERS,hashSeed,normalizeTitle,isArticleTitle} from '../domain/game.mjs';
 import {buildLinkAudit,buildCommonLinkAudit} from '../domain/linklab.mjs';
+import {checkedArticle} from '../domain/study.mjs';
 /** Bounded attempts; only real titles and original page/revision identities. */
 export async function createLinkAudit({start='Mathematics',seed='linklab_1'}={}){
- if(typeof seed!=='string'||seed.length<2||seed.length>80||!STARTERS.includes(start))throw new Error('Choose a supported source article and seed');
- const first=await loadArticle(start);
+ if(typeof seed!=='string'||seed.length<2||seed.length>80||!isArticleTitle(start)||start.trim().length>190)throw new Error('Choose a valid Wikipedia article title and seed');
+ const first=await loadArticle(normalizeTitle(start));
  const candidates=STARTERS.filter(x=>normalizeTitle(x)!==normalizeTitle(first.identity.title));
  const ordered=candidates.map((x,i)=>({title:x,order:hashSeed(seed+':'+x+':'+i)})).sort((a,b)=>a.order-b.order).slice(0,5);
  let error;
@@ -17,4 +18,16 @@ export async function createLinkAudit({start='Mathematics',seed='linklab_1'}={})
   }catch(e){error=e;}
  }
  throw new Error('No fair source-backed question available from these articles: '+(error?.message||'insufficient distinct links'));
+}
+
+/** Re-check the exact source revisions from a missed Link Lab attempt. No stale-answer shortcuts. */
+export async function replayLinkAudit(item){
+ const p=checkedArticle(item?.article),c=checkedArticle(item?.contrast);
+ if(p.language!=='en'||c.language!=='en'||p.pageId===c.pageId)throw new Error('Archived practice requires two distinct English source articles');
+ const [first,second]=await Promise.all([loadArticle(p.title,p.revisionId,p.language),loadArticle(c.title,c.revisionId,c.language)]);
+ if(first.identity.pageId!==p.pageId||first.identity.revisionId!==p.revisionId||second.identity.pageId!==c.pageId||second.identity.revisionId!==c.revisionId)throw new Error('Archived Wikipedia source identity changed');
+ const seed='review_'+p.pageId+'_'+c.pageId;
+ const question=buildLinkAudit(first,second,{seed});
+ let common=null;try{common=buildCommonLinkAudit(first,second,{seed});}catch{}
+ return {question,common,pages:[first,second],retrievedAt:new Date().toISOString(),reviewOf:'local-missed-source'};
 }
