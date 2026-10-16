@@ -20,7 +20,9 @@ const revisionId=revisions?.query?.pages?.[0]?.revisions?.[0]?.revid;
 if(revisionId){
  await get('Wikipedia pinned revision parse',params(wiki,{action:'parse',oldid:revisionId,prop:'text|links|revid',format:'json',formatversion:2}),x=>x?.parse?.revid===revisionId&&x.parse.pageid===revisions.query.pages[0].pageid&&typeof x.parse.text==='string'&&Array.isArray(x.parse.links));
 }else{result.push('NOT_TESTED');console.log('LIVE Wikipedia pinned revision parse NOT_TESTED (metadata prerequisite unavailable)');}
-await get('Wikidata entity Q42',params('https://www.wikidata.org/w/api.php',{action:'wbgetentities',ids:'Q42',props:'labels',languages:'en',format:'json',formatversion:2}),x=>x?.entities?.Q42?.id==='Q42'&&x.entities.Q42.labels?.en?.value);
+await get('Wikidata entity Q42',params('https://www.wikidata.org/w/api.php',{action:'wbgetentities',ids:'Q42',props:'labels',languages:'en',format:'json',formatversion:2}),x=>{const entities=x?.entities;const record=Array.isArray(entities)?entities.find(e=>e?.id==='Q42'):entities?.Q42;
+ if(record?.id==='Q42'&&record?.labels?.en?.value)return true;
+ console.log('LIVE Wikidata diagnostic',JSON.stringify({rootKeys:Object.keys(x||{}).slice(0,10),entitiesType:Array.isArray(entities)?'array':typeof entities,entityKeys:Object.keys(entities||{}).slice(0,8),q42Keys:Object.keys(record||{}).slice(0,12),error:x?.error?.info||null}));return false;});
 await get('Wikimedia daily pageviews','https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/user/Mathematics/daily/20261001/20261002',x=>Array.isArray(x?.items)&&x.items.length>=1&&x.items.every(y=>y.project==='en.wikipedia'&&y.granularity==='daily'&&Number.isSafeInteger(y.views)));
 console.log('LIVE API PROBE SUMMARY',JSON.stringify({pass:result.filter(x=>x==='PASS').length,not_tested:result.filter(x=>x==='NOT_TESTED').length,fail:result.filter(x=>x==='FAIL').length,transport:'Node GET only; client browser CORS remains NOT_TESTED'}));
 if(result.includes('FAIL'))process.exitCode=1;
