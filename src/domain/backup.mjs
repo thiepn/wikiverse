@@ -101,6 +101,12 @@ export function prepareProgressRestore(current,inspection,mode='merge'){
  const result=mode==='replace'?{progress:imported,conflicts:{}}:mergeProgress(local,imported);
  return {...result,mode,currentCounts:progressCounts(local),incomingCounts:progressCounts(imported),resultCounts:progressCounts(result.progress)};
 }
+/** Revalidate the exact inspected payload at commit time, never trust an editable preview object. */
+export function commitInspectedRestore(current,inspection,mode,storage){
+ const prepared=prepareProgressRestore(current,inspection,mode);
+ saveProgress(checkedProgress(prepared.progress),storage);
+ return prepared.progress;
+}
 export function commitPreparedRestore(prepared,storage){
  if(!prepared?.progress||!['merge','replace'].includes(prepared.mode))throw new Error('No verified restore to commit');
  // localStorage.setItem is atomic for a single key; if quota fails caller leaves original state untouched.

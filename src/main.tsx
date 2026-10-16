@@ -13,7 +13,7 @@ import Missions from './features/missions';
 import LinkLab from './features/linklab';
 import StudyDesk from './features/study';
 import BackupCenter from './features/backup';
-import {commitPreparedRestore} from './domain/backup.mjs';
+import {commitInspectedRestore} from './domain/backup.mjs';
 import {recordReadingVisit,saveStudyNote,removeStudyNote,deferReview,journeyStats} from './domain/study.mjs';
 import {dailyMissionBoard} from './domain/missions.mjs';
 
@@ -226,7 +226,7 @@ function App(){
         {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
         {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))}/>}
         {(screen==='pulse'||screen==='capsule')&&<HistoryExplorer key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordHistoryChallenge(p,result))}/>}
-        {screen==='backup'&&<BackupCenter progress={progress} onCommit={prepared=>{const restored=commitPreparedRestore(prepared,window.localStorage);setProgress(restored);}}/>}
+        {screen==='backup'&&<BackupCenter progress={progress} onCommit={(inspection,mode)=>{const restored=commitInspectedRestore(currentProgress.current,inspection,mode,window.localStorage);setProgress(restored);}}/>}
         {screen==='study'&&<StudyDesk progress={progress} onRead={title=>read(title)} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
         {screen==='linklab'&&<LinkLab initialTopic={linkLabTopic} initialReview={linkLabReview} onComplete={entry=>setProgress((p:any)=>recordLinkLab(p,entry))}/>}
         {screen==='missions'&&<Missions progress={progress} onNavigate={mode=>move(mode as Screen)}/>}

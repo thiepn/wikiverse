@@ -107,3 +107,17 @@ test('Wrong answer is not counted as completed topic exercise or source mastery'
  assert.equal(plan.steps.find(x=>x.id==='practice').done,false);
  assert.ok(reviewQueue(p,now).some(x=>x.kind==='linklab'));
 });
+
+test('Final restore recomputes preview against latest local data and never trusts a stale preview object',async()=>{
+ const {commitInspectedRestore}=await import('../src/domain/backup.mjs');
+ const initial=personal(),incoming=initialProgress();
+ incoming.races=[{id:'incoming-source-route'}];
+ const inspection=await inspectProgressBackup(await exportProgressBackup(incoming,now));
+ const updated={...initial,races:[...initial.races,{id:'just-completed'}]};
+ const storage=mock();saveProgress(updated,storage);
+ const result=commitInspectedRestore(updated,inspection,'merge',storage);
+ assert.deepEqual(new Set(result.races.map(x=>x.id)),new Set(['old-route','just-completed','incoming-source-route']));
+ assert.deepEqual(readProgress(storage).races,result.races);
+ assert.throws(()=>commitInspectedRestore(updated,{...inspection,kind:'untrusted'},'replace',storage),/Unsupported restore mode/);
+ assert.equal(readProgress(storage).races.length,3);
+});

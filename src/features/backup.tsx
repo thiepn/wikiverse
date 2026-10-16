@@ -2,7 +2,7 @@ import React,{useMemo,useState} from 'react';
 import {exportProgressBackup,inspectProgressBackup,prepareProgressRestore,progressCounts} from '../domain/backup.mjs';
 import './backup.css';
 const rows=['saved','races','mysteries','readingHistory','studyNotes','reviewMarkers','linkLab','vocabulary','evidenceReviews','arenaAttempts','historyChallenges','learning','knowledgeAttempts','exploration'];
-export default function BackupCenter({progress,onCommit}:{progress:any;onCommit:(prepared:any)=>void}){
+export default function BackupCenter({progress,onCommit}:{progress:any;onCommit:(inspection:any,mode:'merge'|'replace')=>void}){
  const [inspection,setInspection]=useState<any>(null),[mode,setMode]=useState<'merge'|'replace'>('merge'),[armed,setArmed]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[loading,setLoading]=useState(false);
  const prepared=useMemo(()=>{if(!inspection)return null;try{return prepareProgressRestore(progress,inspection,mode);}catch(e:any){return {error:e.message};}},[progress,inspection,mode]);
  async function download(){
@@ -24,7 +24,7 @@ export default function BackupCenter({progress,onCommit}:{progress:any;onCommit:
  }
  function importNow(){
   if(!armed||!prepared||'error'in prepared||!inspection)return;
-  try{onCommit(prepared);setInspection(null);setArmed(false);setError('');setNotice(mode==='merge'?'Verified backup merged with this device.':'Verified backup replaced this device’s local WikiVerse progress.');}
+  try{onCommit(inspection,mode);setInspection(null);setArmed(false);setError('');setNotice(mode==='merge'?'Verified backup merged with this device.':'Verified backup replaced this device’s local WikiVerse progress.');}
   catch(e:any){setError(e.message||'Unable to commit backup. Original local data was preserved.');}
  }
  const counts=progressCounts(progress);
