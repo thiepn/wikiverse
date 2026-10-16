@@ -47,6 +47,7 @@ export async function compareRevisions(history,olderId,newerId){
 }
 
 /** Date-scoped revision browsing. The cursor is opaque, used only for the same bounded query. */
+/** @param {string} title @param {{language?: string,endDate?: string,days?:number,limit?:number,cursor?:string|null,pageId?:number|null}} [options] */
 export async function loadRevisionWindow(title,{language='en',endDate,days=30,limit=20,cursor=null,pageId=null}={}){
  const window=historicalWindow(endDate,days);
  if(!isArticleTitle(title)||!Number.isInteger(limit)||limit<2||limit>30)throw new Error('Invalid date-scoped revision request');

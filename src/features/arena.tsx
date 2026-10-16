@@ -3,7 +3,7 @@ import {STARTERS,dateKey,revisionUrl} from '../domain/game.mjs';
 import {buildArenaManifest,encodeArenaCode,decodeArenaCode,gradeTrailChoice,arenaAttempt} from '../domain/arena.mjs';
 import {createArenaTrail,createDailyTrail,verifyArenaTrail} from '../services/arena.mjs';
 import './arena.css';
-type Trail={manifest:{id:string;dailyKey:string|null;proof:{title:string;pageId:number;revisionId:number;language:string}[];seed:string};pages:{identity:{title:string;revisionId:number;pageId:number;language:string};html:string;links:string[]}[];choices:string[][];verifiedAt:string};
+type Trail=Awaited<ReturnType<typeof verifyArenaTrail>>;
 const date=dateKey();
 function excerpt(html:string){
  const doc=new DOMParser().parseFromString(html,'text/html');
@@ -21,9 +21,9 @@ export default function Arena({onComplete,attempts}:{onComplete:(x:any)=>void;at
   const tick=++op.current;setBusy(action==='import'?'Validating source revisions from shared challenge…':'Constructing and verifying a pinned Wikipedia route…');setError('');setChallenge(null);setFeedback('');setDone(false);setCopied(false);
   try{
    let verified:Trail;
-   if(action==='import'){const manifest=decodeArenaCode(input);verified=await verifyArenaTrail(manifest) as Trail;}
-   else if(action==='daily'){const manifest=await createDailyTrail(date);verified=await verifyArenaTrail(manifest) as Trail;}
-   else{const manifest=await createArenaTrail({seed:'practice_'+Date.now(),starter});verified=await verifyArenaTrail(manifest) as Trail;}
+   if(action==='import'){const manifest=decodeArenaCode(input);verified=await verifyArenaTrail(manifest);}
+   else if(action==='daily'){const manifest=await createDailyTrail(date);verified=await verifyArenaTrail(manifest);}
+   else{const manifest=await createArenaTrail({seed:'practice_'+Date.now(),starter});verified=await verifyArenaTrail(manifest);}
    if(tick!==op.current)return;
    setChallenge(verified);setStep(0);setMistakes(0);setStarted(Date.now());
   }catch(e:any){if(tick===op.current)setError(e.message||'The source could not be verified.');}

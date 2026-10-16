@@ -1,6 +1,7 @@
 import {STARTERS,choose,generateVerifiedRace,normalizeTitle} from '../domain/game.mjs';
 import {buildArenaManifest,validateArenaManifest,sourceLinkChoices} from '../domain/arena.mjs';
 import {loadArticle} from './wikimedia.mjs';
+/** @param {{seed?: string, starter?: string, dailyKey?: string|null}} [options] */
 export async function createArenaTrail({seed,starter,dailyKey=null}={}){
  if(!/^[A-Za-z0-9:_-]{3,90}$/.test(seed||''))throw new Error('Provide a valid challenge seed');
  const start=starter||choose(STARTERS,seed);
