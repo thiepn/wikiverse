@@ -6,6 +6,7 @@ export function checkedArticle(input){
  return {language:input.language,pageId:input.pageId,revisionId:input.revisionId,title:normalizeTitle(input.title)};
 }
 export function sourceRevisionUrl(id){const x=checkedArticle(id);return 'https://'+x.language+'.wikipedia.org/w/index.php?oldid='+x.revisionId;}
+/** @param {any} progress @param {{article:any, from?:any, at?:string}} event */
 export function recordReadingVisit(progress,{article,from=null,at=new Date().toISOString()}){
  const identity=checkedArticle(article),prior=from?checkedArticle(from):null;
  if(!Number.isFinite(Date.parse(at)))throw new Error('Invalid reading timestamp');
