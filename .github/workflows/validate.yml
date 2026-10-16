@@ -1,15 +1,12 @@
-name: WikiVerse source qualification
+name: WikiVerse source and Chromium qualification
 on:
   pull_request:
-  push:
-    branches:
-      - feature/wikiverse-b1-source-backed-gameplay
 permissions:
   contents: read
 jobs:
-  source-build:
+  source-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -17,9 +14,13 @@ jobs:
           node-version: '22'
       - name: Install required packages
         run: npm install --no-audit --no-fund
-      - name: Execute focused gameplay and source tests
+      - name: Source-backed domain and adapter tests
         run: npm test
-      - name: Check source transpilation
-        run: npm run check:syntax
-      - name: TypeScript and Vite build
-        run: npm run build
+      - name: Syntax and source build
+        run: |
+          npm run check:syntax
+          npm run build
+      - name: Chromium desktop and mobile acceptance (mocked Wikimedia upstream)
+        run: |
+          npm install --no-save --no-audit --no-fund playwright-core
+          CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)" node tests/browser.mjs
