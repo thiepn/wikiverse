@@ -6,6 +6,10 @@ A source-backed, local-first Wikipedia/Wikidata exploration and learning platfor
 
 | Mode | Gameplay and learning |
 | --- | --- |
+| **Study Desk** | Preserve source-revision reading history, linked journeys, private editable research notes, a review queue for missed source exercises, optional revisit scheduling, and pinned-revision replay from previous attempts |
+| **Link Lab** | Two source-generated link-recognition exercises from pinned Wikipedia revisions, now supporting source-topic practice from the Study Desk |
+| **Daily Missions** | Rotating local source-event activities, seven-day activity records, and retrospective unranked achievements |
+| **Trail Arena** | Verified article-link trails with locally repeatable daily manifest, private portable challenge codes, and explicit offline room invitations |
 | WikiRace | Follow real article links across a validated two-hop route; record guest-only unranked results |
 | WikiMystery | Reveal actual Wikidata claim-based clues and solve canonical entity-name puzzles |
 | Discover | Search and read sanitized Wikipedia article revisions; save topics |
@@ -44,10 +48,12 @@ Wikipedia article material is attributed with old-revision URLs, contributor/his
 
 ## Qualification and limitations
 
-The qualified feature implementation at commit `8522400850efca0c8be760f5a8d597ee0b9cbd51` passed **55/55** source tests, TypeScript/Vite, and mock-backed end-to-end Chromium desktop and mobile, including all ten knowledge/game modes and My Universe. CI summary: https://github.com/thiepn/wikiverse/actions/runs/38912856043. This README update should be qualified again at its own exact head.
+The current draft PR includes source/domain Node tests, TypeScript/Vite and automated Chromium desktop/mobile user journeys. The exact commit and PASS/FAIL evidence for the most recent run are recorded in [draft PR #1](https://github.com/thiepn/wikiverse/pull/1) and its GitHub Actions. **Do not assume a commit is qualified merely because it belongs to the PR.**
 
-**NOT TESTED:** a live end-to-end Wikimedia Analytics request from an actual client browser; live revision retrieval on representative Wikipedia articles; independent external-reference evidence verification; production load/rate-limit characterization; multi-account security. API response fixtures exercise integration but cannot establish upstream availability, CORS behavior or factual source accuracy.
+GitHub Actions also performs a small, bounded, read-only Node HTTP probe of Wikipedia revision history, a pinned article revision, Wikidata Q42, and Wikimedia pageviews. In this workstream the original Wikipedia and pageview APIs responded successfully; Wikidata Q42 identity and an explicit fallback-language label query responded. The default English-label query returned an empty map. Wikibase's legacy format 1 is therefore used for entity queries while the adapter accepts both map and array multilingual representations. **Client-browser CORS, many other Wikipedia language editions, external reference truth, production rate limits and accessibility remain unqualified.** Mock-backed Chromium tests do not establish real upstream behavior.
 
-**Scope boundaries:** no deployment, no merge, no production/data migrations, no authenticated account synchronization, no competitive anti-cheat authority, no global signed daily manifest, and no paid services. Guests use browser localStorage, which is private to that browser context and can be deleted.
+All browsing and user notes remain local to the device. There is no hosted room authority, real-time multiplayer presence, synchronized remote leaderboard, anti-cheat score server or globally signed daily challenge. Untrusted room messages cannot create trusted membership without a future authenticated backend.
 
-Next product-wide gaps: real upstream compatibility qualification, richer date-scoped archive traversal, trends and revision UX improvements, accessible full-article rendering, competitive rooms/leaderboards with server-owned validation, offline resilience, and original-content review.
+**Strict boundaries:** no deployment, no merge, no production/data migrations, no authenticated account synchronization, no paid services, no credentials. Clearing browser storage removes progress; cross-device backup/import is not yet included.
+
+See [Product-wide completion inventory](docs/product-completeness.md) for sourced major gaps and planned feature-first priorities.

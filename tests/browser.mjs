@@ -228,7 +228,7 @@ try{
    await page.getByRole('button',{name:/Save private note/}).click();
    await page.getByRole('button',{name:/Review queue/}).click();
    await page.locator('.study-review').first().waitFor();
-   await page.locator('.study-review').filter({hasText:'Recheck original article links'}).getByRole('button',{name:/Practice source again/}).click();
+   await page.locator('.study-review').filter({hasText:'Recheck original article links'}).getByRole('button',{name:/Practice source again/}).first().click();
    await page.getByRole('button',{name:/Revisit original pinned link evidence/}).click();
    await page.getByText(/ARCHIVED SOURCE REVIEW/).waitFor();
    await page.locator('.linklab-choices button').first().click();
