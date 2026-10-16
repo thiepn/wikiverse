@@ -1,4 +1,4 @@
-import {apiRequest,loadArticle,pageEntityId} from './wikimedia.mjs';
+import {apiRequest,loadArticle,pageEntityId,normalizeWikidataEntities} from './wikimedia.mjs';
 import {pairedSitelinks,normalizeCitationRecord,citationQuestion,clozeFromParagraphs,supportedLanguage} from '../domain/learning.mjs';
 const DATA='https://www.wikidata.org/w/api.php';
 export async function loadLanguagePair(title,secondary='fr',origin='en'){
@@ -6,7 +6,7 @@ export async function loadLanguagePair(title,secondary='fr',origin='en'){
  const qid=await pageEntityId(title,origin);
  if(!qid)throw new Error('No Wikidata identity exists for the selected topic');
  const response=await apiRequest(DATA,{action:'wbgetentities',ids:qid,props:'sitelinks',sitefilter:'enwiki|'+secondary+'wiki'},{ttl:24*60*60_000});
- const entity=response.entities?.[qid];const sitelinks=pairedSitelinks(entity,secondary);
+ const entity=normalizeWikidataEntities(response.entities)?.[qid];const sitelinks=pairedSitelinks(entity,secondary);
  const [left,right]=await Promise.all([
    loadArticle(sitelinks.left.title,null,'en'),
    loadArticle(sitelinks.right.title,null,secondary)

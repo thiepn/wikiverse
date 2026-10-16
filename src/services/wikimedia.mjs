@@ -92,11 +92,29 @@ export async function pageEntityId(title, language = 'en') {
   const data=await apiRequest(wikipediaApi(language),{action:'query',prop:'pageprops',titles:normalizeTitle(title),redirects:'1',ppprop:'wikibase_item'},{ttl:24*60*60_000});
   return entityId(data.query?.pages?.[0]?.pageprops?.wikibase_item);
 }
+
+/** Normalize Wikibase API formatversion=2 array fields into stable canonical language/site maps. */
+export function normalizeWikidataEntity(entity){
+ if(!entity||typeof entity!=='object')return entity;
+ const languages=x=>Array.isArray(x)?Object.fromEntries(x.filter(v=>v&&typeof v.language==='string'&&v.language.length<=20).map(v=>[v.language,v])):x||{};
+ const aliases=x=>{
+  if(!Array.isArray(x))return x||{};
+  const grouped={};for(const v of x)if(v&&typeof v.language==='string'&&typeof v.value==='string')(grouped[v.language]??=[]).push(v);return grouped;
+ };
+ const sitelinks=x=>Array.isArray(x)?Object.fromEntries(x.filter(v=>v&&typeof v.site==='string').map(v=>[v.site,v])):x||{};
+ return {...entity,labels:languages(entity.labels),descriptions:languages(entity.descriptions),aliases:aliases(entity.aliases),sitelinks:sitelinks(entity.sitelinks)};
+}
+export function normalizeWikidataEntities(entities){
+ if(!entities||typeof entities!=='object')return {};
+ const items=Array.isArray(entities)?entities.map(x=>[x?.id,x]):Object.entries(entities);
+ return Object.fromEntries(items.filter(([id,x])=>/^Q[1-9]\d*$/.test(id||'')&&x&&x.id===id).map(([id,x])=>[id,normalizeWikidataEntity(x)]));
+}
+
 export async function loadEntities(ids) {
   const safe=[...new Set(ids)].filter(entityId).slice(0,40);
   if (!safe.length) return {};
   const data=await apiRequest(wikidata,{action:'wbgetentities',ids:safe.join('|'),props:'labels|aliases|claims',languages:'en',languagefallback:'1'},{ttl:24*60*60_000});
-  return data.entities||{};
+  return normalizeWikidataEntities(data.entities);
 }
 export async function loadMystery(title) {
   const qid=await pageEntityId(title);

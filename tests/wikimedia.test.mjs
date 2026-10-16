@@ -42,3 +42,14 @@ test('mystery pipeline resolves a canonical Wikipedia QID and only renders provi
   try{const {loadMystery}=await import('../src/services/wikimedia.mjs');const result=await loadMystery('Example Researcher');assert.equal(result.id,'Q100');assert.equal(result.clues.length,3);assert.equal(result.title,'Example Researcher');}
   finally{globalThis.fetch=original;}
 });
+
+test('Wikibase API multilingual arrays normalize without fabricating QIDs or dropping source labels',async()=>{
+ const {normalizeWikidataEntities}=await import('../src/services/wikimedia.mjs');
+ const original={id:'Q42',labels:[{language:'en',value:'Douglas Adams'},{language:'fr',value:'Douglas Adams'}],descriptions:[{language:'en',value:'writer'}],aliases:[{language:'en',value:'D. Adams'},{language:'en',value:'Adams'}],sitelinks:[{site:'enwiki',title:'Douglas Adams'}],claims:{P106:[{mainsnak:{}}]}};
+ const fixed=normalizeWikidataEntities({Q42:original}).Q42;
+ assert.equal(fixed.labels.en.value,'Douglas Adams');assert.equal(fixed.descriptions.en.value,'writer');
+ assert.equal(fixed.aliases.en.length,2);assert.equal(fixed.sitelinks.enwiki.title,'Douglas Adams');
+ assert.equal(fixed.claims,original.claims);
+ assert.deepEqual(normalizeWikidataEntities([{...original,id:'Q42'}]).Q42.labels.en,original.labels[0]);
+ assert.deepEqual(normalizeWikidataEntities({BAD:{id:'Q42'}}),{});
+});
