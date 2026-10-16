@@ -1,5 +1,6 @@
 import React,{useEffect,useState,useRef} from 'react';
 import {STARTERS,revisionUrl} from '../domain/game.mjs';
+import {sourceFailureAdvice} from '../services/wikimedia.mjs';
 import {createLinkAudit,replayLinkAudit} from '../services/linklab.mjs';
 import {gradeLinkAudit,recordLinkAudit,linkAuditNextHint} from '../domain/linklab.mjs';
 import './linklab.css';
@@ -35,7 +36,7 @@ export default function LinkLab({onComplete,initialTopic='Mathematics',initialRe
  return <section className="linklab">
   <div className="mode-head"><div className="eyebrow">14 / SOURCE-BASED READING GAME</div><h1>Link Lab<span className="accent">.</span></h1><p>Find an outbound link that actually appears in a pinned Wikipedia article. Incorrect choices are real links from a different Wikipedia article, checked against the question article.</p></div>
   {busy&&<div className="loading" role="status">{busy}</div>}
-  {error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
+  {error&&<div className="error" role="alert">{error}<p>{sourceFailureAdvice(error).hint}</p><button onClick={()=>setError('')}>Dismiss</button></div>}
   {initialReview&&<div className="linklab-panel"><div className="eyebrow">STUDY DESK / ORIGINAL REVISION REVIEW</div><p>Re-open the previously missed source pair at its pinned revisions. New practice questions are generated only after verifying the archived identities; this does not overwrite the previous grade.</p><button disabled={!!busy} onClick={()=>void replayReview()}>Revisit original pinned link evidence →</button></div>}
   <div className="linklab-panel"><label htmlFor="linklab-start">STARTING ARTICLE</label><div className="linklab-tools"><input id="linklab-start" list="linklab-source-starters" maxLength={190} value={starter} onChange={e=>{setStarter(e.target.value);setChallenge(null);}} placeholder="Wikipedia article title"/><datalist id="linklab-source-starters">{STARTERS.map(x=><option key={x} value={x}/>)}</datalist><button className="primary" onClick={()=>void generate(0,starter)} disabled={!!busy}>Generate sourced question →</button></div></div>
   {challenge&&<div className="linklab-modes" role="group" aria-label="Question style"><button aria-pressed={exercise==='outgoing'} onClick={()=>{setExercise('outgoing');setSelected(null);setHint(false);}}>Which link belongs?</button><button aria-pressed={exercise==='common'} disabled={!challenge.common} onClick={()=>{setExercise('common');setSelected(null);setHint(false);}}>What do both link to?</button>{!challenge.common&&<span>No source-backed common-link question for this pair.</span>}</div>}

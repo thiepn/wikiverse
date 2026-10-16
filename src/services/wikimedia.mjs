@@ -13,9 +13,26 @@ const MAX_CACHE = 48;
 const MAX_UPSTREAM_ATTEMPTS=2;
 const TRANSIENT_STATUSES=new Set([429,502,503,504]);
 export function retryDelayMs(response,attempt){
- const seconds=Number(response?.headers?.get?.('retry-after'));
+ const raw=response?.headers?.get?.('retry-after');
+ const seconds=raw==null?NaN:Number(raw);
  if(Number.isFinite(seconds)&&seconds>=0)return Math.min(1500,Math.round(seconds*1000));
  return Math.min(1200,300+attempt*400);
+}
+/** Actionable source failures without treating missing data as false facts. */
+export function sourceFailureAdvice(error){
+ const raw=String(error?.message||error||'Source unavailable');
+ if(/rate limit|429/i.test(raw))return {kind:'rate-limited',retryable:true,hint:'Wikimedia is rate limiting requests. Leave the source unchanged and try later.'};
+ if(/timed out|abort|network|failed to fetch|fetch failed|502|503|504/i.test(raw))return {kind:'temporarily-unavailable',retryable:true,hint:'The original source could not be reached. Check connectivity, then retry; no placeholder answers are generated.'};
+ if(/revision ID|identity changed|canonical|mismatch|unsupported/i.test(raw))return {kind:'source-integrity',retryable:false,hint:'Original source IDs did not match. Use a fresh article search; an unverified result will not be scored.'};
+ return {kind:'source-data',retryable:false,hint:'The source did not contain enough verified information for this activity. Choose a different article.'};
+}
+function boundedPause(ms,signal){
+ return new Promise((resolve,reject)=>{
+  if(signal.aborted)return reject(new Error('Wikimedia request timed out'));
+  const cancel=()=>{clearTimeout(timer);signal.removeEventListener('abort',cancel);reject(new Error('Wikimedia request timed out'));};
+  const timer=setTimeout(()=>{signal.removeEventListener('abort',cancel);resolve();},ms);
+  signal.addEventListener('abort',cancel,{once:true});
+ });
 }
 export function validateApiPayload(payload){
  if(!payload||typeof payload!=='object'||Array.isArray(payload))throw new Error('Invalid Wikimedia JSON response');
@@ -52,7 +69,7 @@ export function apiRequest(endpoint, params, {ttl=3600000,fetcher=fetch}={}) {
         if(response.ok)break;
         if(!TRANSIENT_STATUSES.has(response.status)||attempt===MAX_UPSTREAM_ATTEMPTS-1)break;
         const ms=retryDelayMs(response,attempt);
-        await new Promise((resolve,reject)=>{const timer=setTimeout(resolve,ms);controller.signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new Error('Wikimedia request timed out'));},{once:true});});
+        await boundedPause(ms,controller.signal);
       }
       if (response.status===429) throw new Error('Wikimedia rate limit reached. Try again later.');
       if (!response.ok) throw new Error('Wikimedia request failed ('+response.status+')');

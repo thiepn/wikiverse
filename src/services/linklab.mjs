@@ -1,4 +1,4 @@
-import {loadArticle} from './wikimedia.mjs';
+import {loadArticle,sourceFailureAdvice} from './wikimedia.mjs';
 import {STARTERS,hashSeed,normalizeTitle,isArticleTitle} from '../domain/game.mjs';
 import {buildLinkAudit,buildCommonLinkAudit} from '../domain/linklab.mjs';
 import {checkedArticle} from '../domain/study.mjs';
@@ -15,7 +15,7 @@ export async function createLinkAudit({start='Mathematics',seed='linklab_1'}={})
    const question=buildLinkAudit(first,second,{seed});
    let common=null;try{common=buildCommonLinkAudit(first,second,{seed});}catch{/* shared links genuinely absent */}
    return {question,common,pages:[first,second],retrievedAt:new Date().toISOString()};
-  }catch(e){error=e;}
+  }catch(e){if(sourceFailureAdvice(e).retryable)throw e;error=e;}
  }
  throw new Error('No fair source-backed question available from these articles: '+(error?.message||'insufficient distinct links'));
 }

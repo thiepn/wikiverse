@@ -70,3 +70,21 @@ export function journeyStats(progress,now=new Date()){
  const visitedKeys=new Set(visits.map(x=>x.article.language+':'+x.article.pageId));
  return {topics:topics.length,visits:visits.length,uniqueRead:visitedKeys.size,notes:(progress.studyNotes||[]).length,reviewDue:queue.filter(x=>x.due).length,progressAuthority:'local-actions-not-mastery'};
 }
+
+/** A guided, source-specific cross-mode journey derived from original records. No separate canonical plan store or mastery. */
+export function topicStudyJourney(progress,source){
+ const identity=checkedArticle(source),key=identity.language+':'+identity.pageId;
+ const recordedRead=(progress.readingHistory||[]).filter(x=>x.article?.language===identity.language&&x.article?.pageId===identity.pageId);
+ const outbound=(progress.readingHistory||[]).filter(x=>x.from?.language===identity.language&&x.from?.pageId===identity.pageId&&x.article?.pageId!==identity.pageId);
+ const links=(progress.linkLab||[]).filter(x=>x.primary?.language===identity.language&&x.primary?.pageId===identity.pageId&&x.correct===true&&x.scoringAuthority==='pinned-article-links');
+ const note=(progress.studyNotes||[]).find(x=>x.key===key);
+ const bookmarked=Boolean(progress.saved?.[key]);
+ const steps=[
+  {id:'read',title:'Open the original article',detail:'Inspect the source text and its revision identity',done:recordedRead.length>0,action:'read',count:recordedRead.length},
+  {id:'navigate',title:'Follow a genuine article link',detail:'Continue from this page into a related Wikipedia article',done:outbound.length>0,action:'read',count:outbound.length},
+  {id:'bookmark',title:'Keep the article in My Universe',detail:'Save the canonical Wikipedia article identity',done:bookmarked,action:'save',count:Number(bookmarked)},
+  {id:'practice',title:'Answer a verified source-link question',detail:'Only correct answers from the original Link Lab grader count',done:links.length>0,action:'practice',count:links.length},
+  {id:'reflect',title:'Write your personal research note',detail:'Save a private explanation or question linked to a source revision',done:!!note,action:'note',count:Number(!!note)}
+ ];
+ return {article:identity,steps,done:steps.filter(x=>x.done).length,total:steps.length,authority:'source-actions-only-not-mastery',next:steps.find(x=>!x.done)||null};
+}

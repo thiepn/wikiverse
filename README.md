@@ -6,6 +6,7 @@ A source-backed, local-first Wikipedia/Wikidata exploration and learning platfor
 
 | Mode | Gameplay and learning |
 | --- | --- |
+| **Backup & Recovery** | Download complete user-owned JSON progress, inspect SHA-256 integrity and canonical source IDs, preview merge/replacement, and explicitly commit local restoration without accounts or remote storage |
 | **Study Desk** | Preserve source-revision reading history, linked journeys, private editable research notes, a review queue for missed source exercises, optional revisit scheduling, and pinned-revision replay from previous attempts |
 | **Link Lab** | Two source-generated link-recognition exercises from pinned Wikipedia revisions, now supporting source-topic practice from the Study Desk |
 | **Daily Missions** | Rotating local source-event activities, seven-day activity records, and retrospective unranked achievements |
@@ -57,3 +58,15 @@ All browsing and user notes remain local to the device. There is no hosted room 
 **Strict boundaries:** no deployment, no merge, no production/data migrations, no authenticated account synchronization, no paid services, no credentials. Clearing browser storage removes progress; cross-device backup/import is not yet included.
 
 See [Product-wide completion inventory](docs/product-completeness.md) for sourced major gaps and planned feature-first priorities.
+
+## Local backup, recovery and guided study journeys
+
+Open **Backup & Recovery** to download a private \`wikiverse-local-backup\` JSON file. The file may contain private notes, reading history, source-linked activity and review intentions. Keep it secure and choose **Import** to preview every category before confirming either:
+- **Merge**: preserve local notes, bookmarks and review decisions on identity collisions; union distinct source events without exceeding bounded history limits. The operation refuses capacity overflow instead of silently discarding data.
+- **Replace**: explicitly replace this browser's entire local WikiVerse progress with the validated backup. Export current progress first.
+
+The file uses SHA-256 **integrity checking only**. This is not cryptographic authentication or authoritative scoring: a person in possession of a file may modify it and recompute the checksum. Invalid schemas, source identities, forbidden properties, local ranks and oversized content are rejected before any write. Backup import does **not** confer accounts, official credentials, hosted multiplayer access, or authoritative leaderboard points. Persistent storage remains the existing \`wikiverse:progress:v1\` record, with no migration or parallel data store.
+
+Study Desk now derives a five-step **source-specific** reading journey from actual existing records: open the original article, follow a displayed Wikipedia link, save the canonical article, correctly answer a source-backed Link Lab question, and save a private study note. These are local research actions, **not a learning mastery score**. Each step links directly into the existing feature engine.
+
+Read-only GitHub CI separately probes limited real Wikimedia Action/Wikidata/Analytics responses. Full live client-browser behavior and cross-edition reliability are not qualified by Node-side API probes.

@@ -156,7 +156,7 @@ function App(){
   useEffect(()=>{
     if(screen!=='discover'||query.trim().length<2){setResults([]);return;}
     const number=++qOp.current;
-    const timer=window.setTimeout(()=>searchArticles(query).then(items=>{if(number===qOp.current)setResults(items);}).catch(()=>{if(number===qOp.current)setResults([]);}),350);
+    const timer=window.setTimeout(()=>searchArticles(query).then(items=>{if(number===qOp.current)setResults(items);}).catch(()=>{if(number===qOp.current){setResults([]);setError('Wikipedia search could not reach the source. Try again or use a known topic; an empty result is not being treated as proof that the article does not exist.');}}),350);
     return ()=>window.clearTimeout(timer);
   },[screen,query]);
   return <div className="shell">

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
+import {readFile} from 'node:fs/promises';
 import {spawn} from 'node:child_process';
 import http from 'node:http';
 const {chromium}=await import('playwright-core');
@@ -223,6 +224,10 @@ try{
    await nav('Study Desk');
    await page.getByRole('heading',{name:/Study Desk/}).waitFor();
    await page.locator('.study-topic-list button').filter({hasText:'Mathematics'}).click();
+   await page.locator('.study-path .study-step').first().waitFor();
+   assert.equal(await page.locator('.study-path .study-step').count(),5,'Five source-specific study steps');
+   await page.locator('.study-step').filter({hasText:'Keep the article in My Universe'}).getByRole('button').click();
+   await page.locator('.study-step.complete').filter({hasText:'Keep the article in My Universe'}).waitFor();
    await page.locator('#study-note').fill('Compare mathematics definitions and citation provenance before the next review.');
    await page.locator('#study-status').selectOption('revisit');
    await page.getByRole('button',{name:/Save private note/}).click();
@@ -239,8 +244,38 @@ try{
    await nav('My Universe');await page.getByText(/Located Berlin/).waitFor();
    await page.getByText(/radioactivité/).waitFor();
    await page.getByText(/not been independently inspected/).waitFor();
+   await nav('Backup & Recovery');
+   await page.getByRole('heading',{name:/Backup & Recovery/}).waitFor();
+   const downloadEvent=page.waitForEvent('download');
+   await page.getByRole('button',{name:/Download full JSON backup/}).click();
+   const backupDownload=await downloadEvent;
+   const backupBytes=await readFile(await backupDownload.path());
+   const backupObject=JSON.parse(backupBytes.toString('utf8'));
+   assert.equal(backupObject.kind,'wikiverse-local-backup');
+   assert.equal(backupObject.progress.studyNotes.length,1,'Private study note retained in export');
+   assert.ok(backupObject.progress.linkLab.length>=1,'Original source link activity exported');
+   await page.locator('#backup-file').setInputFiles({name:'wikiverse-local.json',mimeType:'application/json',buffer:backupBytes});
+   await page.getByText(/Verified file format and checksum/).waitFor();
+   await page.locator('.backup-preview table').waitFor();
+   assert.ok(await page.locator('.backup-preview tr').count()>=10,'Preview all original source record categories');
+   await page.getByRole('checkbox',{name:/I reviewed the changes and want to merge/}).check();
+   await page.getByRole('button',{name:/Confirm merge/}).click();
+   await page.getByText(/Verified backup merged with this device/).waitFor();
+   await page.locator('#backup-file').setInputFiles({name:'wikiverse-local.json',mimeType:'application/json',buffer:backupBytes});
+   await page.getByRole('radio',{name:/Replace all local WikiVerse progress/}).check();
+   await page.getByRole('checkbox',{name:/I reviewed the changes and want to replace/}).check();
+   await page.getByRole('button',{name:/Confirm replacement/}).click();
+   await page.getByText(/Verified backup replaced this device/).waitFor();
+   await page.reload({waitUntil:'domcontentloaded'});
+   await page.getByRole('heading',{name:/Everything is/i}).waitFor();
+   await nav('Study Desk');
+   await page.getByRole('heading',{name:/Study Desk/}).waitFor();
+   await page.locator('.study-topic-list button').filter({hasText:'Mathematics'}).click();
+   await page.locator('#study-note').waitFor();
+   assert.equal(await page.locator('#study-note').inputValue(),'Compare mathematics definitions and citation provenance before the next review.','Restored private research note after reload');
+   await nav('My Universe');await page.getByText(/radioactivité/).waitFor();
    assert.deepEqual(issues,[],mode+' browser JavaScript exceptions');
-   console.log('PASS Chromium '+mode+': race→Link Lab→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/room/daily→Galaxy statements→missions→Study Desk source journal/review→local history');
+   console.log('PASS Chromium '+mode+': race→Link Lab→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/room/daily→Galaxy statements→missions→Study Desk source journal/review→local backup merge/replace/reload→source history');
    await context.close();
  }
 }finally{await browser?.close();server.kill('SIGTERM');}
