@@ -27,7 +27,7 @@ function entity(qid){
 }
 const articles={Mathematics:{pageid:1,revid:111,links:['Physics']},Physics:{pageid:2,revid:222,links:['History']},History:{pageid:3,revid:333,links:['Mathematics']}};
 const sourceStarters=['Marie Curie','Albert Einstein','Ada Lovelace','Moon','France','Charles Darwin','Ancient Rome'];
-for(let i=0;i<sourceStarters.length;i++)articles[sourceStarters[i]]={pageid:900+i,revid:909+i,links:['Physics']};
+for(let i=0;i<sourceStarters.length;i++)articles[sourceStarters[i]]={pageid:900+i,revid:909+i,links:['Physics','Biology','Economics','Literature']};
 
 function respond(url){
  const p=url.searchParams,action=p.get('action');
@@ -97,6 +97,14 @@ try{
    await page.locator('.article-body a[data-article-title="Physics"]').click();
    await page.locator('.article-body a[data-article-title="History"]').click();
    await page.getByText('You found the path.').waitFor();
+   await nav('Link Lab');
+   await page.getByRole('button',{name:/Generate sourced question/}).click();
+   await page.locator('.linklab-choices button').first().waitFor();
+   assert.equal(await page.locator('.linklab-choices button').count(),4,'All link choices from real revisions');
+   await page.locator('.linklab-choices button').first().click();
+   await page.locator('.linklab-result').waitFor();
+   await page.getByRole('button',{name:/Another source question/}).click();
+   await page.locator('.linklab-choices button').first().waitFor();
    await nav('WikiMystery');await page.getByRole('button',{name:/Start mystery/}).click();
    const qid=await page.locator('.mystery-grid .eyebrow').first().textContent();
    const answer=idToTitle[(qid||'').match(/Q\d+/)?.[0]];
@@ -206,7 +214,7 @@ try{
    await page.getByText(/radioactivité/).waitFor();
    await page.getByText(/not been independently inspected/).waitFor();
    assert.deepEqual(issues,[],mode+' browser JavaScript exceptions');
-   console.log('PASS Chromium '+mode+': race→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/room/daily→Galaxy statements→missions→local history');
+   console.log('PASS Chromium '+mode+': race→Link Lab→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/room/daily→Galaxy statements→missions→local history');
    await context.close();
  }
 }finally{await browser?.close();server.kill('SIGTERM');}

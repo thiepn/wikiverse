@@ -8,7 +8,8 @@ export const MISSION_RULES=Object.freeze([
  {id:'learn-word',name:'Capture source vocabulary',mode:'polyglot',detail:'Save an expression with its source revision'},
  {id:'investigate',name:'Record a citation assessment',mode:'detective',detail:'Save an ungraded explanation after reviewing a reference'},
  {id:'source-change',name:'Solve an archive or attention puzzle',mode:'capsule',detail:'Complete a revision or pageview challenge'},
- {id:'relationship',name:'Identify a Wikidata relation',mode:'galaxy',detail:'Check a verifiable Wikidata statement'}
+ {id:'relationship',name:'Identify a Wikidata relation',mode:'galaxy',detail:'Check a verifiable Wikidata statement'},
+ {id:'link-audit',name:'Audit original article links',mode:'linklab',detail:'Identify a genuine outgoing Wikipedia link'}
 ]);
 export function utcDateOf(value){if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}T/.test(value)||!Number.isFinite(Date.parse(value)))return null;return new Date(value).toISOString().slice(0,10);}
 export function missionEvidence(progress,id,date){
@@ -22,6 +23,7 @@ export function missionEvidence(progress,id,date){
  case 'learn-word':return (progress.vocabulary||[]).filter(x=>onDay(x,'savedAt')&&x.article?.pageId>0&&x.article?.revisionId>0);
  case 'investigate':return (progress.evidenceReviews||[]).filter(x=>onDay(x,'at')&&x.graded===false&&x.source?.includes('wikipedia.org/w/index.php?oldid='));
  case 'source-change':return (progress.historyChallenges||[]).filter(x=>onDay(x,'at')&&x.correct===true&&x.sourceIds?.length&&['capsule','pulse'].includes(x.mode));
+ case 'link-audit':return (progress.linkLab||[]).filter(x=>onDay(x,'at')&&x.correct===true&&x.sourceIds?.length===2&&x.scoringAuthority==='pinned-article-links');
  case 'relationship':return (progress.knowledgeAttempts||[]).filter(x=>onDay(x,'at')&&x.kind==='wikidata-relationship'&&x.correct===true&&/^https:\/\/www\.wikidata\.org\/wiki\/Q/.test(x.source||''));
  default:throw new Error('Unknown mission');
  }
@@ -49,6 +51,7 @@ export function milestoneBoard(progress){
  for(const x of progress.historyChallenges||[])if(x.correct&&x.sourceIds?.length)unique.add(x.mode);
  for(const x of progress.arenaAttempts||[])if(x.sourceIds?.length===3)unique.add('arena');
  for(const x of progress.knowledgeAttempts||[])if(x.correct&&x.source)unique.add('galaxy');
+ for(const x of progress.linkLab||[])if(x.correct&&x.sourceIds?.length===2)unique.add('linklab');
  achievements.find(x=>x.id==='three-domains').count=unique.size;
  return achievements.map(x=>({...x,count:Math.min(x.count,x.target),earned:x.count>=x.target,kind:'local-participation',scoreAuthority:false}));
 }

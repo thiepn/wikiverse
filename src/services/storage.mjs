@@ -1,5 +1,5 @@
 const KEY='wikiverse:progress:v1';
-export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],historyChallenges:[],arenaAttempts:[],knowledgeAttempts:[],saved:{},daily:{race:null,mystery:null,arena:null}});
+export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],historyChallenges:[],arenaAttempts:[],knowledgeAttempts:[],linkLab:[],saved:{},daily:{race:null,mystery:null,arena:null}});
 export function readProgress(storage=globalThis.localStorage) {
   try {
     const x=JSON.parse(storage.getItem(KEY));
@@ -45,6 +45,12 @@ export function recordArenaAttempt(progress,attempt){
 export function recordKnowledgeAttempt(progress,entry){
  if(entry?.kind!=='wikidata-relationship'||entry?.mode!=='galaxy'||!Array.isArray(entry.qids)||entry.qids.length!==2||!entry.qids.every(x=>/^Q[1-9]\d*$/.test(x))||!/^https:\/\/www\.wikidata\.org\/wiki\/Q\d+#P\d+$/.test(entry.source||'')||typeof entry.correct!=='boolean'||entry.scoringAuthority!=='wikidata-property-identity-only')throw new Error('Invalid Wikidata identity practice result');
  return {...progress,knowledgeAttempts:[entry,...(progress.knowledgeAttempts||[])].slice(0,120)};
+}
+
+
+export function recordLinkLab(progress,entry){
+ if(entry?.kind!=='wikipedia-outgoing-link'||entry?.mode!=='linklab'||entry?.scoringAuthority!=='pinned-article-links'||entry?.ranked!==false||!Array.isArray(entry.sourceIds)||entry.sourceIds.length!==2||entry?.primary?.pageId===entry?.contrast?.pageId||!Array.isArray(entry.sourceUrls)||entry.sourceUrls.length!==2||typeof entry.correct!=='boolean')throw new Error('Invalid original-source link practice result');
+ return {...progress,linkLab:[entry,...(progress.linkLab||[])].slice(0,120)};
 }
 
 export function toggleSaved(progress,article) {

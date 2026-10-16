@@ -10,6 +10,18 @@ export function wikipediaApi(language='en') {
 const inFlight = new Map();
 const cache = new Map();
 const MAX_CACHE = 48;
+const MAX_UPSTREAM_ATTEMPTS=2;
+const TRANSIENT_STATUSES=new Set([429,502,503,504]);
+export function retryDelayMs(response,attempt){
+ const seconds=Number(response?.headers?.get?.('retry-after'));
+ if(Number.isFinite(seconds)&&seconds>=0)return Math.min(1500,Math.round(seconds*1000));
+ return Math.min(1200,300+attempt*400);
+}
+export function validateApiPayload(payload){
+ if(!payload||typeof payload!=='object'||Array.isArray(payload))throw new Error('Invalid Wikimedia JSON response');
+ if(payload.error)throw new Error(String(payload.error.info||'Wikimedia returned an API error').slice(0,240));
+ return payload;
+}
 let lastRequest = 0;
 let queue = Promise.resolve();
 
@@ -34,11 +46,17 @@ export function apiRequest(endpoint, params, {ttl=3600000,fetcher=fetch}={}) {
     const controller=new AbortController();
     const timer=setTimeout(()=>controller.abort(),15000);
     try {
-      const response=await fetcher(key,{signal:controller.signal,headers:{Accept:'application/json'}});
+      let response;
+      for(let attempt=0;attempt<MAX_UPSTREAM_ATTEMPTS;attempt++){
+        response=await fetcher(key,{signal:controller.signal,headers:{Accept:'application/json'}});
+        if(response.ok)break;
+        if(!TRANSIENT_STATUSES.has(response.status)||attempt===MAX_UPSTREAM_ATTEMPTS-1)break;
+        const ms=retryDelayMs(response,attempt);
+        await new Promise((resolve,reject)=>{const timer=setTimeout(resolve,ms);controller.signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new Error('Wikimedia request timed out'));},{once:true});});
+      }
       if (response.status===429) throw new Error('Wikimedia rate limit reached. Try again later.');
-      if (!response.ok) throw new Error(`Wikimedia request failed (${response.status})`);
-      const payload=await response.json();
-      if (payload.error) throw new Error(payload.error.info || 'Wikimedia returned an error');
+      if (!response.ok) throw new Error('Wikimedia request failed ('+response.status+')');
+      const payload=validateApiPayload(await response.json());
       cache.set(key,{value:payload,expires:Date.now()+ttl});
       if (cache.size>MAX_CACHE) cache.delete(cache.keys().next().value);
       return payload;
@@ -61,7 +79,8 @@ export async function loadArticle(title, revisionId = null, language = 'en') {
   const source = pinned ? {oldid:String(revisionId)} : {page:normalizeTitle(title),redirects:'1'};
   const data=await apiRequest(endpoint,{action:'parse',...source,prop:'text|links|revid',disableeditsection:'1',disabletoc:'1'}, {ttl:pinned ? 30*24*60*60_000 : 6*60*60_000});
   const page=data.parse;
-  if (!page || !page.text || !page.revid || !page.pageid || !isArticleTitle(page.title)) throw new Error('Article unavailable or unsupported');
+  if (!page || typeof page.text!=='string' || !page.text || !page.revid || !page.pageid || !isArticleTitle(page.title)) throw new Error('Article unavailable or unsupported');
+  if(pinned&&page.revid!==revisionId)throw new Error('Pinned Wikipedia revision ID did not match source response');
   if (page.text.length > 1_600_000) throw new Error('This Wikipedia page is too large for the current lightweight reader.');
   // Links from parse are not themselves navigable until they appear in the sanitized reader.
   // Kept for verified route construction only; reader UI further restricts clicks to displayed anchors.
