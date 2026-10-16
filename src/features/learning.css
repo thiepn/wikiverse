@@ -4,3 +4,12 @@
 .learn .learn-panel form>button{position:relative;z-index:2;display:block;min-height:48px;touch-action:manipulation;margin-top:18px}
 .learn .learn-panel blockquote{position:relative;z-index:0}
 @media(max-width:760px){.learn .learn-panel form>button{width:100%;min-height:52px;scroll-margin-block:36px}}
+
+/* Prevent min-content sizing from expanding mobile layout beyond the device viewport. */
+.learn,.learn .learn-controls,.learn .learn-exercises,.learn .learn-panel,.learn .learn-citation-choices,.learn .learn-choices,.learn .learn-pane{min-width:0;max-width:100%}
+.learn .learn-panel,.learn .learn-panel form,.learn .learn-citation-choices button,.learn .learn-panel blockquote{overflow-wrap:anywhere}
+.learn .learn-panel input,.learn .learn-panel select,.learn .learn-panel textarea,.learn .learn-panel button{max-width:100%;min-width:0}
+.learn .learn-row>*{min-width:0}
+.learn .learn-source-bar{min-width:0;overflow-wrap:anywhere}
+@media(max-width:960px){.learn .learn-exercises{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:760px){.learn .learn-panes{grid-template-columns:minmax(0,1fr)}.learn .learn-choices{grid-template-columns:repeat(2,minmax(0,1fr))}.learn .learn-mobile-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}

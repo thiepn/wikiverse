@@ -107,6 +107,9 @@ try{
        return {button:{x:r.x,y:r.y,width:r.width,height:r.height},viewport:{w:window.innerWidth,h:window.innerHeight,scrollY:window.scrollY,visualHeight:window.visualViewport?.height},center:{x,y},hit:hit?.outerHTML.slice(0,350),parent:{x:parent?.x,y:parent?.y,width:parent?.width,height:parent?.height}};
      });
      console.log('MOBILE REVIEW TAP GEOMETRY',JSON.stringify(metrics));
+     const overflow=await page.evaluate(()=>({visualWidth:window.visualViewport?.width,innerWidth:window.innerWidth,scrollWidth:document.documentElement.scrollWidth}));
+     console.log('MOBILE VIEWPORT CHECK',JSON.stringify(overflow));
+     assert.ok(overflow.innerWidth<=(overflow.visualWidth||412)+2,'Mobile article layout expands beyond visual viewport');
    }
    await page.getByRole('button',{name:/Save private review/}).click();
    await page.getByText(/Review saved locally/).waitFor();
