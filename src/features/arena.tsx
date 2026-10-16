@@ -10,7 +10,7 @@ function excerpt(html:string){
  const p=[...doc.querySelectorAll('p')].map(x=>x.textContent?.replace(/\[[^\]]{1,12}\]/g,'').trim()||'').find(x=>x.length>60);
  return p?.slice(0,600)||'Read the original pinned article to investigate its outgoing links.';
 }
-export default function Arena({onComplete,attempts}:{onComplete:(x:any)=>void;attempts:any[]}){
+export default function Arena({onComplete,attempts,dailyManifest,onDailyManifest}:{onComplete:(x:any)=>void;attempts:any[];dailyManifest?:{date:string;manifest:any}|null;onDailyManifest:(x:{date:string;manifest:any})=>void}){
  const [starter,setStarter]=useState(STARTERS[0]),[input,setInput]=useState(''),[busy,setBusy]=useState(''),[error,setError]=useState('');
  const [challenge,setChallenge]=useState<Trail|null>(null),[step,setStep]=useState(0),[mistakes,setMistakes]=useState(0),[feedback,setFeedback]=useState(''),[done,setDone]=useState(false),[copied,setCopied]=useState(false),[started,setStarted]=useState(0);
  const op=useRef(0);
@@ -22,7 +22,12 @@ export default function Arena({onComplete,attempts}:{onComplete:(x:any)=>void;at
   try{
    let verified:Trail;
    if(action==='import'){const manifest=decodeArenaCode(input);verified=await verifyArenaTrail(manifest);}
-   else if(action==='daily'){const manifest=await createDailyTrail(date);verified=await verifyArenaTrail(manifest);}
+   else if(action==='daily'){
+     const cached=dailyManifest?.date===date?dailyManifest.manifest:null;
+     const manifest=cached||await createDailyTrail(date);
+     verified=await verifyArenaTrail(manifest);
+     if(tick===op.current&&!cached)onDailyManifest({date,manifest:verified.manifest});
+    }
    else{const manifest=await createArenaTrail({seed:'practice_'+Date.now(),starter});verified=await verifyArenaTrail(manifest);}
    if(tick!==op.current)return;
    setChallenge(verified);setStep(0);setMistakes(0);setStarted(Date.now());
@@ -49,7 +54,7 @@ export default function Arena({onComplete,attempts}:{onComplete:(x:any)=>void;at
   {error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
   {busy&&<div className="loading" role="status">{busy}</div>}
   {!challenge?<div className="arena-grid">
-   <section className="arena-panel"><div className="eyebrow">DAILY / UTC {date}</div><h2>Today's route</h2><p>A dated local challenge generated from original Wikipedia links. The article snapshots are pinned after generation, but the day's challenge is not globally signed or synchronized.</p><p>Daily attempts on this device: <strong>{completedToday.length}</strong></p><button className="primary" disabled={!!busy} onClick={()=>void prepare('daily')}>Create today’s verified challenge →</button></section>
+   <section className="arena-panel"><div className="eyebrow">DAILY / UTC {date}</div><h2>Today's route</h2><p>A dated local challenge generated from original Wikipedia links. After verification its pinned revision manifest is saved on this device and reused throughout the UTC day, but it is not globally signed or synchronized.</p><p>Daily attempts on this device: <strong>{completedToday.length}</strong></p><button className="primary" disabled={!!busy} onClick={()=>void prepare('daily')}>Create today’s verified challenge →</button></section>
    <section className="arena-panel"><div className="eyebrow">UNLIMITED PRACTICE</div><h2>Custom starting point</h2><p>Generate a proven two-hop article-link puzzle with real revision identities.</p><label htmlFor="arena-starter">STARTING ARTICLE</label><select id="arena-starter" value={starter} onChange={e=>setStarter(e.target.value)}>{STARTERS.map(t=><option key={t}>{t}</option>)}</select><button disabled={!!busy} onClick={()=>void prepare('practice')}>Generate practice trail →</button></section>
    <section className="arena-panel arena-wide"><div className="eyebrow">ASYNCHRONOUS FRIEND CHALLENGE</div><h2>Import a WikiVerse challenge code</h2><p>Codes contain article page IDs and revision IDs—not external server state. Imported routes are checked against the pinned Wikipedia links before becoming playable. They are not secure multiplayer results.</p><label htmlFor="arena-import">CHALLENGE CODE</label><textarea id="arena-import" rows={3} maxLength={4005} value={input} onChange={e=>setInput(e.target.value)} placeholder="WV1.…"/><button disabled={!!busy||!input.trim()} onClick={()=>void prepare('import')}>Verify and play this route →</button></section>
   </div>:<>

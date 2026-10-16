@@ -172,6 +172,15 @@ try{
    await page.locator('.arena-options button').filter({hasText:'Physics'}).click();
    await page.locator('.arena-options button').filter({hasText:'History'}).click();
    await page.getByText('Proven path completed').waitFor();
+   await page.getByRole('button',{name:/Try another challenge/}).click();
+   await page.getByRole('button',{name:/Create today’s verified challenge/}).click();
+   await page.locator('#arena-code').waitFor();
+   const dailyCode=await page.locator('#arena-code').inputValue();
+   assert.ok(dailyCode.startsWith('WV1.'),'Daily manifest should be exported after verification');
+   await nav('Discover');await nav('Trail Arena');
+   await page.getByRole('button',{name:/Create today’s verified challenge/}).click();
+   await page.locator('#arena-code').waitFor();
+   assert.equal(await page.locator('#arena-code').inputValue(),dailyCode,'Daily route must preserve local pinned revisions');
    await nav('My Universe');await page.getByText(/Located Berlin/).waitFor();
    await page.getByText(/radioactivité/).waitFor();
    await page.getByText(/not been independently inspected/).waitFor();

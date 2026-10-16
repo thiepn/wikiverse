@@ -11,7 +11,7 @@ export function validateArenaManifest(input){
   if(ids.has(id))throw new Error('Challenge route repeats the same source');
   ids.add(id);return article;
  });
- if(proof.some(p=>p.language!==proof[0].language)||proof.some(p=>p.pageId===proof[0].pageId&&p!==proof[0]))throw new Error('Challenge must remain in one language and use distinct pages');
+ if(proof.some(p=>p.language!==proof[0].language)||new Set(proof.map(p=>p.pageId)).size!==proof.length)throw new Error('Challenge must remain in one language and use distinct pages');
  if(!/^[A-Za-z0-9:_-]{3,90}$/.test(input.seed||''))throw new Error('Invalid challenge seed');
  if(input.dailyKey!==null&&input.dailyKey!==undefined&&!/^\d{4}-\d{2}-\d{2}$/.test(input.dailyKey))throw new Error('Invalid daily challenge key');
  const canonical={version:1,kind:'pinned-wikilink-trail',ranked:false,seed:input.seed,dailyKey:input.dailyKey??null,proof};

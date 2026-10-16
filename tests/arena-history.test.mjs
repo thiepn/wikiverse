@@ -50,6 +50,7 @@ test('Arena rejects malformed imports, repeated pages, restricted languages, and
  assert.throws(()=>decodeArenaCode('WV1.invalid***'));
  assert.throws(()=>validateArenaManifest({...manifest,ranked:true}));
  assert.throws(()=>validateArenaManifest({...manifest,proof:[proof[0],proof[0],proof[2]]}));
+ assert.throws(()=>validateArenaManifest({...manifest,proof:[proof[0],proof[1],{...proof[1],revisionId:777}]}),/distinct pages/);
  assert.throws(()=>validateArenaManifest({...manifest,proof:[proof[0],{...proof[1],language:'ru'},proof[2]]}));
 });
 test('Arena distractors come only from actual pinned source links; absence of proof is hard failure',()=>{
