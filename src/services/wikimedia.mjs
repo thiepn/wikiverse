@@ -33,7 +33,7 @@ export function apiStats() {return {cached:cache.size,pending:inFlight.size};}
 export function apiRequest(endpoint, params, {ttl=3600000,fetcher=fetch}={}) {
   if (![...([...LANGUAGES].map(wikipediaApi)),wikidata].includes(endpoint)) throw new Error('Only Wikimedia Action APIs are permitted');
   const u = new URL(endpoint);
-  for (const [k,v] of Object.entries({...params,action:params.action,format:'json',formatversion:'2',origin:'*'})) u.searchParams.set(k,String(v));
+  for (const [k,v] of Object.entries({...params,action:params.action,format:'json',formatversion:endpoint===wikidata?'1':'2',origin:'*'})) u.searchParams.set(k,String(v));
   const key=u.toString();
   const hit=cache.get(key);
   if (hit && hit.expires > Date.now()) return Promise.resolve(hit.value);

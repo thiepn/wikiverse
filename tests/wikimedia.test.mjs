@@ -53,3 +53,15 @@ test('Wikibase API multilingual arrays normalize without fabricating QIDs or dro
  assert.deepEqual(normalizeWikidataEntities([{...original,id:'Q42'}]).Q42.labels.en,original.labels[0]);
  assert.deepEqual(normalizeWikidataEntities({BAD:{id:'Q42'}}),{});
 });
+
+test('Live-compatible Wikidata entity requests use the verified stable Wikibase v1 label map',async()=>{
+ clearApiCache();const {loadEntities}=await import('../src/services/wikimedia.mjs');
+ const original=globalThis.fetch;let calls=0;
+ globalThis.fetch=async url=>{const u=new URL(url);calls++;
+  assert.equal(u.hostname,'www.wikidata.org');
+  assert.equal(u.searchParams.get('formatversion'),'1');
+  assert.equal(u.searchParams.get('languagefallback'),'1');
+  return {ok:true,status:200,json:async()=>({entities:{Q42:{id:'Q42',labels:{en:{language:'en',value:'Douglas Adams'}},aliases:{en:[{language:'en',value:'D. Adams'}]}}}})};};
+ try{const result=await loadEntities(['Q42']);assert.equal(result.Q42.labels.en.value,'Douglas Adams');assert.equal(result.Q42.aliases.en[0].value,'D. Adams');assert.equal(calls,1);}
+ finally{globalThis.fetch=original;}
+});
