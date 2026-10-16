@@ -1,5 +1,5 @@
 const KEY='wikiverse:progress:v1';
-export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],historyChallenges:[],arenaAttempts:[],saved:{},daily:{race:null,mystery:null,arena:null}});
+export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],historyChallenges:[],arenaAttempts:[],knowledgeAttempts:[],saved:{},daily:{race:null,mystery:null,arena:null}});
 export function readProgress(storage=globalThis.localStorage) {
   try {
     const x=JSON.parse(storage.getItem(KEY));
@@ -39,6 +39,12 @@ export function recordHistoryChallenge(progress,entry){
 export function recordArenaAttempt(progress,attempt){
  if(attempt?.ranked!==false||attempt?.score!==null||!Array.isArray(attempt?.sourceIds)||attempt.sourceIds.length!==3||!attempt.challengeId||!Number.isSafeInteger(attempt.mistakes)||attempt.mistakes<0)throw new Error('Invalid unranked trail attempt');
  return {...progress,arenaAttempts:[attempt,...(progress.arenaAttempts||[])].slice(0,120)};
+}
+
+
+export function recordKnowledgeAttempt(progress,entry){
+ if(entry?.kind!=='wikidata-relationship'||entry?.mode!=='galaxy'||!Array.isArray(entry.qids)||entry.qids.length!==2||!entry.qids.every(x=>/^Q[1-9]\d*$/.test(x))||!/^https:\/\/www\.wikidata\.org\/wiki\/Q\d+#P\d+$/.test(entry.source||'')||typeof entry.correct!=='boolean'||entry.scoringAuthority!=='wikidata-property-identity-only')throw new Error('Invalid Wikidata identity practice result');
+ return {...progress,knowledgeAttempts:[entry,...(progress.knowledgeAttempts||[])].slice(0,120)};
 }
 
 export function toggleSaved(progress,article) {

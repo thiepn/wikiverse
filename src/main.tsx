@@ -3,18 +3,21 @@ import {createRoot} from 'react-dom/client';
 import {makeReaderHtml} from './components/reader';
 import {STARTERS,MYSTERY_PEOPLE,choose,dateKey,hashSeed,applyRaceClick,acceptedEntityAnswer,mysteryScore,generateVerifiedRace,progressSummary,revisionUrl} from './domain/game.mjs';
 import {loadArticle,loadMystery,searchArticles,apiStats} from './services/wikimedia.mjs';
-import {readProgress,saveProgress,recordRace,recordMystery,recordExploration,recordLearning,saveVocabulary,recordEvidenceReview,recordHistoryChallenge,recordArenaAttempt,toggleSaved,initialProgress} from './services/storage.mjs';
+import {readProgress,saveProgress,recordRace,recordMystery,recordExploration,recordLearning,saveVocabulary,recordEvidenceReview,recordHistoryChallenge,recordArenaAttempt,recordKnowledgeAttempt,toggleSaved,initialProgress} from './services/storage.mjs';
 import './style.css';
 import Exploration from './features/exploration';
 import Learning from './features/learning';
 import HistoryExplorer from './features/history';
 import Arena from './features/arena';
+import Missions from './features/missions';
+import {dailyMissionBoard} from './domain/missions.mjs';
 
-type Screen = 'home'|'race'|'mystery'|'discover'|'library'|'galaxy'|'geo'|'chronicle'|'polyglot'|'detective'|'pulse'|'capsule'|'arena';
+type Screen = 'missions'|'home'|'race'|'mystery'|'discover'|'library'|'galaxy'|'geo'|'chronicle'|'polyglot'|'detective'|'pulse'|'capsule'|'arena';
 type Page = {identity:{language:string;pageId:number;revisionId:number;title:string};html:string;links:string[];retrievedAt:string};
 const TODAY = dateKey();
 const pages: {id:Screen;name:string;symbol:string}[] = [
-  {id:'home',name:'Overview',symbol:'◫'},{id:'race',name:'WikiRace',symbol:'↗'},
+  {id:'home',name:'Overview',symbol:'◫'},
+  {id:'missions',name:'Daily Missions',symbol:'◆'},{id:'race',name:'WikiRace',symbol:'↗'},
   {id:'mystery',name:'WikiMystery',symbol:'?'},{id:'discover',name:'Discover',symbol:'◎'},
   {id:'library',name:'My Universe',symbol:'▤'},
   {id:'galaxy',name:'Knowledge Galaxy',symbol:'✧'},
@@ -162,6 +165,8 @@ function App(){
         {busy&&<div className="loading" role="status">{busy}</div>}
         {screen==='home'&&<>
           <section className="hero"><div className="eyebrow">01 / THE KNOWLEDGE UNIVERSE</div><h1>Everything is<br/><em>connected.</em></h1><p>Navigate real Wikipedia articles, solve Wikidata mysteries and build your personal map of discoveries.</p><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>startRace(true)}>Start today's race ↗</button><button disabled={Boolean(busy)} onClick={()=>startMystery(true)}>Today's mystery →</button></div></section>
+          <div className="section-head"><h2>Daily knowledge route</h2><span className="eyebrow">{dailyMissionBoard(progress).date} UTC</span></div>
+          <div className="panel"><h3>{dailyMissionBoard(progress).completed} / {dailyMissionBoard(progress).total} source missions completed today</h3><p>Daily missions are derived from your existing WikiVerse activities, with private progress and participation-only milestones.</p><button onClick={()=>move('missions')}>Open daily mission board →</button></div>
           <div className="section-head"><h2>Choose an experience</h2><span className="eyebrow">THREE WAYS TO BEGIN</span></div><div className="cards">
             <button onClick={()=>move('race')}><span className="glyph">↗</span><span className="eyebrow">MODE 01</span><h3>WikiRace</h3><p>Travel from article to article using genuine source hyperlinks.</p><b>ENTER RACE →</b></button>
             <button onClick={()=>move('mystery')}><span className="glyph">?</span><span className="eyebrow">MODE 02</span><h3>WikiMystery</h3><p>Deduce a person from clues backed by Wikidata properties.</p><b>SOLVE MYSTERY →</b></button>
@@ -204,13 +209,16 @@ function App(){
           {!discover?<><div className="section-head"><h2>Start somewhere</h2></div><div className="topics">{STARTERS.map(x=><button onClick={()=>read(x)} key={x}>{x} ↗</button>)}</div></>:
           <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">ARTICLE</div><h2>{discover.identity.title}</h2></div><button onClick={()=>toggle(discover.identity)}>{saved(discover.identity)?'✓ Saved':'＋ Save'}</button></div><Article page={discover} onTravel={read}/><button className="text-action" onClick={()=>setDiscover(null)}>← All topics</button></div>}
         </section>}
-        {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))}/>}
+        {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
         {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))}/>}
         {(screen==='pulse'||screen==='capsule')&&<HistoryExplorer key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordHistoryChallenge(p,result))}/>}
+        {screen==='missions'&&<Missions progress={progress} onNavigate={mode=>move(mode as Screen)}/>}
         {screen==='arena'&&<Arena onComplete={attempt=>setProgress((p:any)=>recordArenaAttempt(p,attempt))} attempts={progress.arenaAttempts||[]} dailyManifest={progress.daily?.arena} onDailyManifest={entry=>setProgress((p:any)=>({...p,daily:{...p.daily,arena:entry}}))}/>}
         {screen==='library'&&<section>
           <div className="mode-head"><div className="eyebrow">04 / LOCAL PROGRESS</div><h1>My Universe<span className="accent">.</span></h1><p>Your reading collection and gameplay history stay on this device.</p></div>
           <div className="stats"><div><span>RACES</span><strong>{stats.races}</strong></div><div><span>MYSTERIES</span><strong>{stats.mysteries}</strong></div><div><span>SAVED ARTICLES</span><strong>{stats.discoveries}</strong></div></div>
+          <div className="section-head"><h2>Knowledge investigations and milestones</h2></div>
+          <div className="history"><p>{(progress.knowledgeAttempts||[]).length} sourced Wikidata relationship answers recorded on this device. <button onClick={()=>move('missions')}>View missions & achievements →</button></p></div>
           <div className="section-head"><h2>Saved discoveries</h2></div><div className="topics">{Object.values(progress.saved).length?(Object.values(progress.saved) as Page['identity'][]).map(x=><div key={x.language+':'+x.pageId} className="saved"><button onClick={()=>read(x.title)}>{x.title} ↗</button><button aria-label={'Remove '+x.title} onClick={()=>toggle(x)}>Remove</button></div>):<p>Nothing saved yet. Explore Wikipedia to build your collection.</p>}</div>
           <div className="section-head"><h2>Saved vocabulary</h2></div>
           <div className="history">{(progress.vocabulary||[]).length?(progress.vocabulary||[]).map((v:any)=><div key={v.id}><span>{v.language.toUpperCase()}</span><strong>{v.term} — {v.meaning}</strong><a href={revisionUrl(v.article)} target="_blank" rel="noreferrer">Source ↗</a></div>):<p>No words saved. Select text in WikiPolyglot to build your collection.</p>}</div>
@@ -220,7 +228,7 @@ function App(){
           <div className="history">{(progress.arenaAttempts||[]).length?(progress.arenaAttempts||[]).slice(0,10).map((x:any)=><div key={x.id}><span>{x.dailyKey||'PRACTICE'}</span><strong>Verified article trail · {x.sourceIds.length} source snapshots</strong><span>{x.mistakes} non-proof attempts</span></div>):<p>No shared or daily trail challenges completed.</p>}</div>
           <div className="section-head"><h2>Attention and revision challenges</h2></div>
           <div className="history">{(progress.historyChallenges||[]).length?(progress.historyChallenges||[]).slice(0,12).map((x:any)=><div key={x.id}><span>{x.mode.toUpperCase()}</span><strong>{x.title}</strong><span>{x.correct?'Correct':'Attempted'} · {x.score} points</span></div>):<p>No pageview or revision challenges completed yet.</p>}</div>
-          <div className="section-head"><h2>Recent activity</h2></div><div className="history">{[...progress.races.map((x:any)=>({time:x.finishedAt,label:x.start+' → '+x.target,type:'RACE',value:x.clicks+' clicks'})),...progress.mysteries.map((x:any)=>({time:x.finishedAt,label:x.topic,type:'MYSTERY',value:x.score+' points'})),...(progress.exploration||[]).map((x:any)=>({time:x.at,label:x.title,type:x.mode.toUpperCase(),value:x.score+' points'})),...(progress.learning||[]).map((x:any)=>({time:x.at,label:x.kind,type:x.mode.toUpperCase(),value:(x.correct?'Correct':'Practice')+' · '+x.score+' points'})),...(progress.historyChallenges||[]).map((x:any)=>({time:x.at,label:x.title,type:x.mode.toUpperCase(),value:x.score+' points'})),...(progress.arenaAttempts||[]).map((x:any)=>({time:x.completedAt,label:x.challengeId,type:'TRAIL',value:x.mistakes+' non-proof attempts'}))].sort((a,b)=>b.time.localeCompare(a.time)).slice(0,12).map((x,i)=><div key={i}><span>{x.type}</span><strong>{x.label}</strong><span>{x.value}</span></div>)}</div>
+          <div className="section-head"><h2>Recent activity</h2></div><div className="history">{[...progress.races.map((x:any)=>({time:x.finishedAt,label:x.start+' → '+x.target,type:'RACE',value:x.clicks+' clicks'})),...progress.mysteries.map((x:any)=>({time:x.finishedAt,label:x.topic,type:'MYSTERY',value:x.score+' points'})),...(progress.exploration||[]).map((x:any)=>({time:x.at,label:x.title,type:x.mode.toUpperCase(),value:x.score+' points'})),...(progress.learning||[]).map((x:any)=>({time:x.at,label:x.kind,type:x.mode.toUpperCase(),value:(x.correct?'Correct':'Practice')+' · '+x.score+' points'})),...(progress.historyChallenges||[]).map((x:any)=>({time:x.at,label:x.title,type:x.mode.toUpperCase(),value:x.score+' points'})),...(progress.arenaAttempts||[]).map((x:any)=>({time:x.completedAt,label:x.challengeId,type:'TRAIL',value:x.mistakes+' non-proof attempts'})),...(progress.knowledgeAttempts||[]).map((x:any)=>({time:x.at,label:x.id,type:'GALAXY',value:x.correct?'Recorded property':'Practice response'}))].sort((a,b)=>b.time.localeCompare(a.time)).slice(0,12).map((x,i)=><div key={i}><span>{x.type}</span><strong>{x.label}</strong><span>{x.value}</span></div>)}</div>
           <div className="panel privacy"><h3>Local-first privacy</h3><p>No account, remote profiling, analytics or public leaderboard. Clearing site data removes progress.</p><button className="danger" onClick={()=>{if(window.confirm('Delete all local WikiVerse progress?'))setProgress(initialProgress());}}>Clear local progress</button></div>
         </section>}
       </main><footer><span><b>WIKIVERSE</b> · Independent THIEPN project</span><div><a href="https://www.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia ↗</a><a href="https://www.wikidata.org/" target="_blank" rel="noreferrer">Wikidata ↗</a><span>{apiStats().cached} cached queries</span></div></footer>

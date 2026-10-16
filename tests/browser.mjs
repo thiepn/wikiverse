@@ -104,6 +104,9 @@ try{
    await page.locator('#answer').fill(answer);await page.getByRole('button',{name:/Submit/}).click();
    await page.getByText('CORRECT',{exact:true}).waitFor();
    await nav('Knowledge Galaxy');await page.getByText('Source relationships').waitFor();
+   await page.locator('.exp-relation-options button').first().click();
+   await page.locator('.exp-relations-game .exp-feedback').waitFor();
+   await page.getByRole('button',{name:/Another statement/}).click();
    await page.locator('.exp-connection button').first().click();await page.getByText('WIKIDATA ENTITY Q90001').waitFor();
    await nav('GeoWiki');await page.getByRole('button',{name:'Locate a city'}).click();
    await page.locator('.exp-place-options button').first().click();await page.getByText('Correct!',{exact:true}).waitFor();
@@ -175,6 +178,18 @@ try{
    await page.locator('.arena-options button').filter({hasText:'Physics'}).click();
    await page.locator('.arena-options button').filter({hasText:'History'}).click();
    await page.getByText('Proven path completed').waitFor();
+   await page.getByRole('button',{name:/Create private room invitation/}).click();
+   await page.locator('#room-invite-code').waitFor();
+   const roomCode=await page.locator('#room-invite-code').inputValue();
+   assert.ok(roomCode.startsWith('WVROOM1.'),'Host invitation must be portable and versioned');
+   await page.getByRole('button',{name:/Try another challenge/}).click();
+   await page.locator('#room-import').fill(roomCode);
+   await page.locator('#room-guest').fill('Guest');
+   await page.getByRole('button',{name:/Verify private room and open trail/}).click();
+   await page.getByText(/presence: NOT CONNECTED/).waitFor();
+   await page.locator('.arena-options button').filter({hasText:'Physics'}).click();
+   await page.locator('.arena-options button').filter({hasText:'History'}).click();
+   await page.getByText('Proven path completed').waitFor();
    await page.getByRole('button',{name:/Try another challenge/}).click();
    await page.getByRole('button',{name:/Create today’s verified challenge/}).click();
    await page.locator('#arena-code').waitFor();
@@ -184,11 +199,14 @@ try{
    await page.getByRole('button',{name:/Create today’s verified challenge/}).click();
    await page.locator('#arena-code').waitFor();
    assert.equal(await page.locator('#arena-code').inputValue(),dailyCode,'Daily route must preserve local pinned revisions');
+   await nav('Daily Missions');await page.getByRole('heading',{name:/Daily Missions/}).waitFor();
+   assert.equal(await page.locator('.mission-item').count(),5,'Five actionable daily tasks');
+   assert.ok((await page.locator('.mission-achievement').count())>=6);
    await nav('My Universe');await page.getByText(/Located Berlin/).waitFor();
    await page.getByText(/radioactivité/).waitFor();
    await page.getByText(/not been independently inspected/).waitFor();
    assert.deepEqual(issues,[],mode+' browser JavaScript exceptions');
-   console.log('PASS Chromium '+mode+': race→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/replay→local history');
+   console.log('PASS Chromium '+mode+': race→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/room/daily→Galaxy statements→missions→local history');
    await context.close();
  }
 }finally{await browser?.close();server.kill('SIGTERM');}

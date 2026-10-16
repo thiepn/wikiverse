@@ -2,6 +2,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {galaxyForTitle,galaxyForQid,loadGeoCatalog,loadChronicle} from '../services/exploration.mjs';
 import {searchArticles} from '../services/wikimedia.mjs';
 import {mapPoint,chronologicalOrder,shuffleDeterministic,isCorrectOrder,changeOrder} from '../domain/exploration.mjs';
+import {sourceRelationQuestion,gradeRelationQuestion,knowledgeResult} from '../domain/knowledge.mjs';
 import './exploration.css';
 type Mode='galaxy'|'geo'|'chronicle';
 type Edge={to:string;title:string;property:string;label:string;sourceUrl:string};
@@ -9,11 +10,13 @@ type Galaxy={root:{id:string;title:string;description:string;sourceUrl:string};e
 type Place={qid:string;title:string;articleTitle:string;latitude:number;longitude:number;sourceUrl:string};
 type Fact={qid:string;title:string;articleTitle:string;year:number;type:string;sourceUrl:string;property:string};
 type Result={mode:Mode;title:string;score:number;at:string;source:string};
-export default function Exploration({mode,onRead,onComplete}:{mode:Mode;onRead:(title:string)=>void;onComplete:(result:Result)=>void}){
+export default function Exploration({mode,onRead,onComplete,onKnowledge}:{mode:Mode;onRead:(title:string)=>void;onComplete:(result:Result)=>void;onKnowledge:(result:any)=>void}){
  const [busy,setBusy]=useState('');const [error,setError]=useState('');
  const [galaxy,setGalaxy]=useState<Galaxy|null>(null);const [trail,setTrail]=useState<string[]>([]);const [topic,setTopic]=useState('Marie Curie');const [matches,setMatches]=useState<{title:string;pageId:number}[]>([]);const [filter,setFilter]=useState('all');
  const [places,setPlaces]=useState<Place[]>([]);const [place,setPlace]=useState<Place|null>(null);const [geoQuiz,setGeoQuiz]=useState(false);const [round,setRound]=useState(0);const [geoAnswer,setGeoAnswer]=useState<boolean|null>(null);
  const [facts,setFacts]=useState<Fact[]>([]);const [ordered,setOrdered]=useState<Fact[]>([]);const [chronoQuiz,setChronoQuiz]=useState(false);const [chronoAnswer,setChronoAnswer]=useState<boolean|null>(null);
+ const [relationRound,setRelationRound]=useState(0),[relationChoice,setRelationChoice]=useState<string|null>(null);
+ const relationQuiz=useMemo(()=>sourceRelationQuestion(galaxy,relationRound),[galaxy,relationRound]);
  const target=places.length?places[round%places.length]:null;
  const edges=useMemo(()=>galaxy?.edges.filter(x=>filter==='all'||x.property===filter)||[],[galaxy,filter]);
  useEffect(()=>{
@@ -26,8 +29,8 @@ export default function Exploration({mode,onRead,onComplete}:{mode:Mode;onRead:(
    void load();return()=>{active=false;};
  },[mode]);
  useEffect(()=>{if(mode!=='galaxy'||topic.trim().length<3){setMatches([]);return;}let active=true;const timer=setTimeout(()=>searchArticles(topic).then(x=>{if(active)setMatches(x.slice(0,6));}).catch(()=>{if(active)setMatches([]);}),350);return()=>{active=false;clearTimeout(timer);};},[mode,topic]);
- async function loadGalaxy(titleOrId:string,byId=false){if(busy)return;setBusy('Expanding verified relationships…');setError('');try{const x=byId?await galaxyForQid(titleOrId):await galaxyForTitle(titleOrId);if(byId&&galaxy)setTrail(t=>[...t,galaxy.root.id]);if(!byId)setTrail([]);setGalaxy(x);setFilter('all');setMatches([]);}catch(e:any){setError(e.message);}finally{setBusy('');}}
- async function back(){if(!trail.length||busy)return;setBusy('Returning to previous entity…');try{const g=await galaxyForQid(trail[trail.length-1]);setGalaxy(g);setTrail(t=>t.slice(0,-1));setFilter('all');}catch(e:any){setError(e.message);}finally{setBusy('');}}
+ async function loadGalaxy(titleOrId:string,byId=false){if(busy)return;setBusy('Expanding verified relationships…');setError('');try{const x=byId?await galaxyForQid(titleOrId):await galaxyForTitle(titleOrId);if(byId&&galaxy)setTrail(t=>[...t,galaxy.root.id]);if(!byId)setTrail([]);setGalaxy(x);setFilter('all');setMatches([]);setRelationRound(0);setRelationChoice(null);}catch(e:any){setError(e.message);}finally{setBusy('');}}
+ async function back(){if(!trail.length||busy)return;setBusy('Returning to previous entity…');try{const g=await galaxyForQid(trail[trail.length-1]);setGalaxy(g);setTrail(t=>t.slice(0,-1));setFilter('all');setRelationRound(0);setRelationChoice(null);}catch(e:any){setError(e.message);}finally{setBusy('');}}
  function choosePlace(p:Place){setPlace(p);if(!geoQuiz||geoAnswer!==null||!target)return;const correct=p.qid===target.qid;setGeoAnswer(correct);if(correct)onComplete({mode:'geo',title:'Located '+target.title,score:100,at:new Date().toISOString(),source:target.sourceUrl});}
  function chronoStart(){setChronoQuiz(true);setChronoAnswer(null);setOrdered(shuffleDeterministic(facts.slice(0,Math.min(facts.length,6)),String(Date.now())));}
  function chronoCheck(){const correct=isCorrectOrder(ordered);setChronoAnswer(correct);if(correct)onComplete({mode:'chronicle',title:'Ordered '+ordered.length+' historical records',score:ordered.length*20,at:new Date().toISOString(),source:'https://www.wikidata.org/'});}
@@ -43,7 +46,14 @@ export default function Exploration({mode,onRead,onComplete}:{mode:Mode;onRead:(
      <div className="exp-filters"><button className={filter==='all'?'selected':''} onClick={()=>setFilter('all')}>All ({galaxy.edges.length})</button>{galaxy.groups.map(g=><button key={g.property} className={filter===g.property?'selected':''} onClick={()=>setFilter(g.property)}>{g.label} ({g.count})</button>)}</div>
      <div className="exp-galaxy"><div className="exp-orbit" role="img" aria-label={'Knowledge network centered on '+galaxy.root.title+' with '+edges.length+' source relationships'}><svg viewBox="0 0 600 400"><g stroke="#527987" strokeWidth="1.5">{edges.slice(0,13).map((e,i)=>{const angle=2*Math.PI*i/Math.min(13,edges.length);return <line key={e.property+e.to} x1="300" y1="200" x2={300+210*Math.cos(angle)} y2={200+150*Math.sin(angle)}/>;})}</g><circle cx="300" cy="200" r="45" fill="#1e5060" stroke="#a3e8e6" strokeWidth="3"/><text x="300" y="204" fill="#fff" fontSize="13" textAnchor="middle">{galaxy.root.id}</text>{edges.slice(0,13).map((e,i)=>{const angle=2*Math.PI*i/Math.min(13,edges.length);return <circle key={e.property+e.to} cx={300+210*Math.cos(angle)} cy={200+150*Math.sin(angle)} r="16" fill="#203848" stroke="#80c4cf" strokeWidth="2"><title>{e.label+': '+e.title}</title></circle>;})}</svg></div>
        <div className="exp-connections"><h3>Source relationships</h3>{edges.map(e=><div key={e.property+e.to} className="exp-connection"><div><span className="eyebrow">{e.label.toUpperCase()} · {e.property}</span><strong>{e.title}</strong><a href={e.sourceUrl} target="_blank" rel="noreferrer">Inspect claim ↗</a></div><button disabled={!!busy} onClick={()=>void loadGalaxy(e.to,true)}>Expand →</button></div>)}{!edges.length&&<p>No verified relationships in this filter.</p>}</div>
-     </div><p className="exp-caveat">Only a bounded selection of actual Wikidata relationships is shown; no inferred links are added.</p>
+     </div>
+     <section className="exp-quiz-panel exp-relations-game"><div className="eyebrow">SOURCE-IDENTITY QUESTION / WIKIDATA P-STATEMENT</div><h3>Which relation is recorded?</h3>
+       {relationQuiz?<><p>According to Wikidata, which property connects <strong>{relationQuiz.rootTitle}</strong> to <strong>{relationQuiz.targetTitle}</strong>?</p>
+         <div className="exp-relation-options">{relationQuiz.choices.map(o=><button key={o.property} disabled={relationChoice!==null} aria-label={'Choose '+o.label} onClick={()=>{setRelationChoice(o.property);onKnowledge(knowledgeResult(relationQuiz,o.property));}}>{o.label} <small>{o.property}</small></button>)}</div>
+         {relationChoice!==null&&<div className="exp-feedback"><strong>{gradeRelationQuestion(relationQuiz,relationChoice)?'Correct recorded property.':'Different from the recorded property.'}</strong><p>Wikidata records {relationQuiz.choices.find(o=>o.property===relationQuiz.answer)?.label} ({relationQuiz.answer}).</p><a href={relationQuiz.source} target="_blank" rel="noreferrer">Inspect original statement ↗</a><button onClick={()=>{setRelationRound(x=>x+1);setRelationChoice(null);}}>Another statement →</button></div>}
+         <p className="exp-caveat">Checks original Wikidata statement identity; it is not a certificate that the claim is indisputable.</p></>:<p>More distinct, source-verified Wikidata relations are required for an unambiguous question. Explore another topic.</p>}
+     </section>
+     <p className="exp-caveat">Only a bounded selection of actual Wikidata relationships is shown; no inferred links are added.</p>
    </>}</>}
    {mode==='geo'&&<><div className="exp-tabs"><button className={!geoQuiz?'selected':''} onClick={()=>{setGeoQuiz(false);setGeoAnswer(null);}}>Explore</button><button disabled={!places.length} className={geoQuiz?'selected':''} onClick={()=>{setGeoQuiz(true);setGeoAnswer(null);setPlace(null);}}>Locate a city</button></div>
      {places.length>0&&<><div className="exp-geo-bar"><h2>{geoQuiz?'Locate '+target?.title:'Earth coordinate atlas'}</h2><span className="eyebrow">{places.length} VERIFIED PLACES</span></div>
