@@ -1,6 +1,7 @@
 import {apiRequest,wikipediaApi,loadArticle} from './wikimedia.mjs';
-import {pulseWindow,pulsePath,normalizePageviews,normalizeRevisions,paragraphChanges} from '../domain/history.mjs';
+import {pulseWindow,pulsePath,normalizePageviews,normalizeRevisions,paragraphChanges,historicalWindow,normalizeRevisionPage,safeRevisionCursor} from '../domain/history.mjs';
 const cache=new Map();const pending=new Map();const LIMIT=24;let nextAllowed=0;let chain=Promise.resolve();
+import {isArticleTitle} from '../domain/game.mjs';
 const API='https://wikimedia.org';
 export function clearPulseCache(){cache.clear();pending.clear();}
 export function analyticsRequest(path,{fetcher=fetch,ttl=6*3600000}={}){
@@ -43,4 +44,17 @@ export async function compareRevisions(history,olderId,newerId){
   return [...doc.querySelectorAll('p')].map(p=>p.textContent?.trim()||'');
  };
  return {...paragraphChanges({...before,paragraphs:paragraphs(before)},{...after,paragraphs:paragraphs(after)}),earlier:old,later:current};
+}
+
+/** Date-scoped revision browsing. The cursor is opaque, used only for the same bounded query. */
+export async function loadRevisionWindow(title,{language='en',endDate,days=30,limit=20,cursor=null,pageId=null}={}){
+ const window=historicalWindow(endDate,days);
+ if(!isArticleTitle(title)||!Number.isInteger(limit)||limit<2||limit>30)throw new Error('Invalid date-scoped revision request');
+ if(cursor&&!safeRevisionCursor(cursor))throw new Error('Invalid continuation token');
+ if(cursor&&(!Number.isSafeInteger(pageId)||pageId<=0))throw new Error('Continuation requires verified page identity');
+ const args={action:'query',prop:'revisions',rvprop:'ids|timestamp|size|comment',rvlimit:limit,rvdir:'older',rvstart:window.rvstart,rvend:window.rvend};
+ if(cursor){args.pageids=String(pageId);args.rvcontinue=cursor;}else{args.titles=title;args.redirects='1';}
+ const payload=await apiRequest(wikipediaApi(language),args,{ttl:10*60000});
+ const result=normalizeRevisionPage(payload,{language,title,expectedPageId:cursor?pageId:null});
+ return {...result,window};
 }

@@ -1,5 +1,5 @@
 const KEY='wikiverse:progress:v1';
-export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],historyChallenges:[],saved:{},daily:{race:null,mystery:null}});
+export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],historyChallenges:[],arenaAttempts:[],saved:{},daily:{race:null,mystery:null}});
 export function readProgress(storage=globalThis.localStorage) {
   try {
     const x=JSON.parse(storage.getItem(KEY));
@@ -33,6 +33,12 @@ export function recordHistoryChallenge(progress,entry){
  if(!['pulse','capsule'].includes(entry?.mode)||!['pageviews-comparison','revision-change'].includes(entry?.kind)||!Array.isArray(entry.sourceIds)||!entry.sourceIds.length||typeof entry.correct!=='boolean'||!Number.isFinite(entry.score))throw new Error('Invalid source-backed historical result');
  const record={...entry,id:entry.mode+':'+entry.at+':'+entry.sourceIds.join('|')};
  return {...progress,historyChallenges:[record,...(progress.historyChallenges||[])].slice(0,120)};
+}
+
+
+export function recordArenaAttempt(progress,attempt){
+ if(attempt?.ranked!==false||attempt?.score!==null||!Array.isArray(attempt?.sourceIds)||attempt.sourceIds.length!==3||!attempt.challengeId||!Number.isSafeInteger(attempt.mistakes)||attempt.mistakes<0)throw new Error('Invalid unranked trail attempt');
+ return {...progress,arenaAttempts:[attempt,...(progress.arenaAttempts||[])].slice(0,120)};
 }
 
 export function toggleSaved(progress,article) {

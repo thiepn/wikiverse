@@ -1,12 +1,12 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {loadPageviews,loadRevisionList,compareRevisions} from '../services/history.mjs';
-import {pulseSummary,pulseLeaders,pulseQuiz,gradePulse,changeChallenge,gradeChange} from '../domain/history.mjs';
+import {loadPageviews,loadRevisionList,loadRevisionWindow,compareRevisions} from '../services/history.mjs';
+import {pulseSummary,pulseLeaders,pulseQuiz,gradePulse,changeChallenge,gradeChange,mergeRevisionPages} from '../domain/history.mjs';
 import './history.css';
 type Mode='pulse'|'capsule';
 type Point={date:string;views:number};
 type Series={title:string;language:string;points:Point[];start:string;end:string;source:string;total:number;observedDays:number};
 type Revision={revisionId:number;timestamp:string;size:number|null;comment:string;sourceUrl:string};
-type History={identity:{language:string;pageId:number;title:string};revisions:Revision[];historyUrl:string};
+type History={identity:{language:string;pageId:number;title:string};revisions:Revision[];historyUrl:string;nextCursor?:string|null;window?:{start:string;end:string;days:number}};
 type Comparison={from:{revisionId:number};to:{revisionId:number};earlier:Revision;later:Revision;added:string[];removed:string[];addedCount:number;removedCount:number;method:string;truncated:boolean};
 type Result={mode:Mode;kind:string;title:string;correct:boolean;score:number;at:string;source:string;sourceIds:string[]};
 const initialTitles=['Marie Curie','Albert Einstein'];
@@ -26,6 +26,8 @@ export default function HistoryExplorer({mode,onRead,onComplete}:{mode:Mode;onRe
  const [language,setLanguage]=useState('en'),[days,setDays]=useState(30),[titles,setTitles]=useState<string[]>(initialTitles),[newTitle,setNewTitle]=useState('');
  const [series,setSeries]=useState<Series[]>([]),[pulseAnswer,setPulseAnswer]=useState<string|null>(null),[pulseRound,setPulseRound]=useState(0),[tableOpen,setTableOpen]=useState(false);
  const [topic,setTopic]=useState('Marie Curie'),[history,setHistory]=useState<History|null>(null),[older,setOlder]=useState<number|null>(null),[newer,setNewer]=useState<number|null>(null),[diff,setDiff]=useState<Comparison|null>(null),[revisionAnswer,setRevisionAnswer]=useState<string|null>(null),[revisionRound,setRevisionRound]=useState(0);
+ const [historyScope,setHistoryScope]=useState<'recent'|'window'>('recent');
+ const [anchorDate,setAnchorDate]=useState(new Date().toISOString().slice(0,10)),[windowDays,setWindowDays]=useState(30);
  const operation=useRef(0);
  const quiz=useMemo(()=>pulseQuiz(series,pulseRound),[series,pulseRound]);
  const change=useMemo(()=>diff?changeChallenge(diff,String(revisionRound)):null,[diff,revisionRound]);
@@ -41,16 +43,27 @@ export default function HistoryExplorer({mode,onRead,onComplete}:{mode:Mode;onRe
   }catch(e:any){if(operation.current===stamp){setSeries([]);setError(e.message||'Wikimedia Analytics unavailable');}}
   finally{if(operation.current===stamp)setBusy('');}
  }
- async function fetchHistory(selected=topic){
+ async function fetchHistory(selected=topic,scope=historyScope,day=anchorDate,span=windowDays){
   const stamp=++operation.current;setBusy('Loading historical revisions…');setError('');setDiff(null);setRevisionAnswer(null);
   try{
-   const data=await loadRevisionList(selected);if(operation.current!==stamp)return;
+   const data:History=scope==='window'?await loadRevisionWindow(selected,{endDate:day,days:span,limit:20}):await loadRevisionList(selected);
+   if(operation.current!==stamp)return;
+   if(data.revisions.length<2)throw new Error('Only one revision was found in this window. Broaden the date range.');
    setHistory(data);setTopic(data.identity.title);setNewer(data.revisions[0].revisionId);
    setOlder(data.revisions[Math.min(5,data.revisions.length-1)].revisionId);
   }catch(e:any){if(operation.current===stamp){setHistory(null);setError(e.message||'Revision history unavailable');}}
   finally{if(operation.current===stamp)setBusy('');}
  }
  useEffect(()=>{if(mode==='pulse')void loadPulse();else void fetchHistory();return()=>{operation.current++;};},[mode]);
+ async function moreRevisions(){
+  if(!history?.nextCursor||!history.window||busy)return;
+  const stamp=++operation.current;setBusy('Loading more revisions within the selected historical window…');setError('');
+  try{
+   const next=await loadRevisionWindow(history.identity.title,{endDate:history.window.end,days:history.window.days,limit:20,cursor:history.nextCursor,pageId:history.identity.pageId});
+   if(stamp!==operation.current)return;setHistory(mergeRevisionPages(history,next));
+  }catch(e:any){if(stamp===operation.current)setError(e.message||'Could not continue this historical window.');}
+  finally{if(stamp===operation.current)setBusy('');}
+ }
  function addTopic(e:React.FormEvent){
   e.preventDefault();const next=newTitle.trim().replace(/\s+/g,' ');
   if(!next)return;if(titles.length>=3){setError('Compare up to three articles at a time.');return;}
@@ -91,14 +104,19 @@ export default function HistoryExplorer({mode,onRead,onComplete}:{mode:Mode;onRe
     <div className="hist-panel"><div className="eyebrow">SOURCE-DERIVED CHALLENGE</div><h2>Which article received more pageviews?</h2>{quiz?<><p>Which article had the highest recorded user pageviews on <b>{quiz.date}</b>?</p><div className="hist-options">{quiz.choices.map(c=><button className={pulseAnswer===c.id?'selected':''} disabled={pulseAnswer!==null} key={c.id} onClick={()=>submitPulse(c.id)}>{c.title}</button>)}</div>{pulseAnswer!==null&&<div className="hist-result"><strong>{gradePulse(quiz,pulseAnswer)?'Correct observation.':'Different from the actual observation.'}</strong>{quiz.choices.map(c=><p key={c.id}>{c.title}: <b>{integer.format(c.views)}</b> pageviews</p>)}<button onClick={()=>{setPulseRound(r=>r+1);setPulseAnswer(null);}}>Another observation →</button></div>}</>:<p>At least two articles with a common date and a single highest count are required.</p>}</div>
    </>}
   </>:<>
-   <form className="hist-panel hist-capsule-search" onSubmit={e=>{e.preventDefault();void fetchHistory();}}><label htmlFor="capsule-article">ENGLISH WIKIPEDIA ARTICLE</label><div><input id="capsule-article" value={topic} onChange={e=>setTopic(e.target.value)} maxLength={190}/><button disabled={!!busy} type="submit">Find revisions →</button></div></form>
-   {history&&<><div className="hist-source"><span>{history.identity.title} · PAGE ID {history.identity.pageId} · {history.revisions.length} RECENT REVISIONS</span><a href={history.historyUrl} target="_blank" rel="noreferrer">Full Wikipedia edit history ↗</a></div>
+   <div className="hist-panel hist-date-browser">
+    <h2>Browse historical snapshots</h2><p>Search recent revisions or choose an exact UTC date with a bounded 7–365-day lookback. Historical requests use official MediaWiki `rvstart`, `rvend`, and verified continuation tokens.</p>
+    <div className="hist-date-tabs"><button aria-pressed={historyScope==='recent'} onClick={()=>{setHistoryScope('recent');void fetchHistory(topic,'recent');}}>Recent revisions</button><button aria-pressed={historyScope==='window'} onClick={()=>{setHistoryScope('window');void fetchHistory(topic,'window',anchorDate,windowDays);}}>Date-scoped archive</button></div>
+    {historyScope==='window'&&<div className="hist-date-fields"><div><label htmlFor="capsule-anchor">LAST DAY IN WINDOW (UTC)</label><input id="capsule-anchor" type="date" value={anchorDate} max={new Date().toISOString().slice(0,10)} min="2001-01-01" onChange={e=>setAnchorDate(e.target.value)}/></div><div><label htmlFor="capsule-days">LOOKBACK</label><select id="capsule-days" value={windowDays} onChange={e=>setWindowDays(Number(e.target.value))}>{[7,30,90,365].map(d=><option key={d} value={d}>{d} days</option>)}</select></div></div>}
+   </div>
+   <form className="hist-panel hist-capsule-search" onSubmit={e=>{e.preventDefault();void fetchHistory();}}><label htmlFor="capsule-article">ENGLISH WIKIPEDIA ARTICLE</label><div><input id="capsule-article" value={topic} onChange={e=>setTopic(e.target.value)} maxLength={190}/><button disabled={!!busy} type="submit">{historyScope==='window'?'Search selected date window →':'Find recent revisions →'}</button></div></form>
+   {history&&<><div className="hist-source"><span>{history.identity.title} · PAGE ID {history.identity.pageId} · {history.revisions.length} {history.window?'SCOPED':'RECENT'} REVISIONS {history.window?'· '+history.window.start+' — '+history.window.end:''}</span><a href={history.historyUrl} target="_blank" rel="noreferrer">Full Wikipedia edit history ↗</a></div>
     <div className="hist-panel"><h2>Choose two historical snapshots</h2><p>Revision IDs, dates, and descriptions are retrieved from Wikipedia. Only two revisions of the same source page can be compared.</p><div className="hist-compare-controls"><div><label htmlFor="capsule-old">EARLIER REVISION</label><select id="capsule-old" value={older??''} onChange={e=>setOlder(Number(e.target.value))}>{history.revisions.map(r=><option key={r.revisionId} value={r.revisionId}>{new Date(r.timestamp).toLocaleString('en',{dateStyle:'medium',timeStyle:'short',timeZone:'UTC'})} · {r.revisionId}</option>)}</select></div><div><label htmlFor="capsule-new">LATER REVISION</label><select id="capsule-new" value={newer??''} onChange={e=>setNewer(Number(e.target.value))}>{history.revisions.map(r=><option key={r.revisionId} value={r.revisionId}>{new Date(r.timestamp).toLocaleString('en',{dateStyle:'medium',timeStyle:'short',timeZone:'UTC'})} · {r.revisionId}</option>)}</select></div><button disabled={!!busy} onClick={()=>void compare()}>Compare article text →</button></div></div>
     {diff&&<><div className="hist-revisions"><div><span className="eyebrow">BEFORE</span><h3>{new Date(diff.earlier.timestamp).toLocaleString('en',{timeZone:'UTC',dateStyle:'medium',timeStyle:'short'})}</h3><p>Revision {diff.earlier.revisionId}</p><a href={diff.earlier.sourceUrl} target="_blank" rel="noreferrer">Original text and contributors ↗</a></div><div><span className="eyebrow">AFTER</span><h3>{new Date(diff.later.timestamp).toLocaleString('en',{timeZone:'UTC',dateStyle:'medium',timeStyle:'short'})}</h3><p>Revision {diff.later.revisionId}</p><a href={diff.later.sourceUrl} target="_blank" rel="noreferrer">Original text and contributors ↗</a></div></div>
       <div className="hist-panel"><h2>Paragraph presence comparison</h2><p>Compares text paragraphs exactly after whitespace normalization. Edited or moved paragraphs can appear as both removed and added; this is not a semantic fact checker.</p><div className="hist-diff"><section><h3>Added in later revision ({diff.addedCount})</h3>{diff.added.map((p,i)=><p key={i}>{p}</p>)}{!diff.added.length&&<p>No added paragraphs detected.</p>}</section><section><h3>Absent from later revision ({diff.removedCount})</h3>{diff.removed.map((p,i)=><p key={i}>{p}</p>)}{!diff.removed.length&&<p>No removed paragraphs detected.</p>}</section></div>{diff.truncated&&<small>Long changes are truncated for performance. Open original revisions for the complete text.</small>}<p className="hist-attrib">Adapted Wikipedia text · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a> · Revision authors and source links above</p></div>
       <div className="hist-panel"><div className="eyebrow">VERIFIED TEXT-DIFFERENCE CHALLENGE</div><h2>Was this paragraph added or removed?</h2>{change?<><blockquote className="hist-passage">{change.prompt}</blockquote><div className="hist-options"><button disabled={revisionAnswer!==null} onClick={()=>guessChange('added')}>Added in later revision</button><button disabled={revisionAnswer!==null} onClick={()=>guessChange('removed')}>Present only in earlier revision</button></div>{revisionAnswer!==null&&<div className="hist-result"><strong>{gradeChange(change,revisionAnswer)?'Correct revision classification.':'Incorrect classification.'}</strong><p>Recorded category: {change.answer}</p><button onClick={()=>{setRevisionRound(i=>i+1);setRevisionAnswer(null);}}>Another source excerpt →</button></div>}</>:<p>No changed paragraphs were detected between these revisions. Choose a different pair.</p>}</div>
     </>}
-    <div className="hist-panel"><h2>Revision archive</h2><div className="hist-archive">{history.revisions.map(r=><div key={r.revisionId}><time dateTime={r.timestamp}>{new Date(r.timestamp).toLocaleString('en',{timeZone:'UTC',dateStyle:'medium',timeStyle:'short'})}</time><span>{r.comment||'No edit summary supplied'}</span><a href={r.sourceUrl} target="_blank" rel="noreferrer">Revision {r.revisionId} ↗</a></div>)}</div></div>
+    <div className="hist-panel"><h2>Revision archive</h2><div className="hist-archive">{history.revisions.map(r=><div key={r.revisionId}><time dateTime={r.timestamp}>{new Date(r.timestamp).toLocaleString('en',{timeZone:'UTC',dateStyle:'medium',timeStyle:'short'})}</time><span>{r.comment||'No edit summary supplied'}</span><a href={r.sourceUrl} target="_blank" rel="noreferrer">Revision {r.revisionId} ↗</a></div>)}</div>{history.nextCursor&&<div className="hist-more"><button disabled={!!busy} onClick={()=>void moreRevisions()}>Load more revisions from this date window →</button><span>Continuation is locked to page ID {history.identity.pageId}</span></div>}</div>
    </>}
   </>}
  </section>;

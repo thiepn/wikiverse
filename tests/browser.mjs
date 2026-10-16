@@ -30,6 +30,11 @@ function respond(url){
  const p=url.searchParams,action=p.get('action');
  if(action==='query'&&p.get('prop')==='revisions'){
    const revs=Array.from({length:8},(_,i)=>({revid:5008-i,timestamp:'2026-10-'+String(15-i).padStart(2,'0')+'T12:00:00Z',size:1600-i*20,comment:'Archived Wikipedia edit '+(8-i)}));
+   if(p.get('rvstart')){
+     const more=!!p.get('rvcontinue');
+     const selected=more?revs.slice(4):revs.slice(0,4);
+     return {query:{pages:[{pageid:900,title:'Marie Curie',revisions:selected}]},...(more?{}:{continue:{continue:'||',rvcontinue:'20261012120000|5005'}})};
+   }
    return {query:{pages:[{pageid:900,title:p.get('titles'),revisions:revs}]}};
  }
  if(action==='query'&&p.get('prop')==='pageprops')return {query:{pages:[{pageprops:{wikibase_item:titleToId[p.get('titles')]||null}}]}};
@@ -145,11 +150,33 @@ try{
    await page.locator('.hist-diff').waitFor();
    await page.locator('.hist-options button').first().click();
    await page.locator('.hist-result').waitFor();
+   await page.getByRole('button',{name:'Date-scoped archive'}).click();
+   await page.locator('#capsule-anchor').fill('2026-10-12');
+   await page.locator('#capsule-days').selectOption('30');
+   await page.getByRole('button',{name:/Search selected date window/}).click();
+   await page.getByText(/4 SCOPED REVISIONS/).waitFor();
+   await page.getByRole('button',{name:/Load more revisions from this date window/}).click();
+   await page.getByText(/8 SCOPED REVISIONS/).waitFor();
+   await nav('Trail Arena');
+   await page.locator('#arena-starter').selectOption({label:'Mathematics'});
+   await page.getByRole('button',{name:/Generate practice trail/}).click();
+   await page.locator('.arena-options button').filter({hasText:'Physics'}).click();
+   await page.locator('.arena-options button').filter({hasText:'History'}).click();
+   await page.getByText('Proven path completed').waitFor();
+   const portable=await page.locator('#arena-code').inputValue();
+   assert.ok(portable.startsWith('WV1.'),'Share code must contain versioned canonical route');
+   await page.getByRole('button',{name:/Try another challenge/}).click();
+   await page.locator('#arena-import').fill(portable);
+   await page.getByRole('button',{name:/Verify and play this route/}).click();
+   await page.locator('.arena-options button').filter({hasText:'Physics'}).waitFor();
+   await page.locator('.arena-options button').filter({hasText:'Physics'}).click();
+   await page.locator('.arena-options button').filter({hasText:'History'}).click();
+   await page.getByText('Proven path completed').waitFor();
    await nav('My Universe');await page.getByText(/Located Berlin/).waitFor();
    await page.getByText(/radioactivité/).waitFor();
    await page.getByText(/not been independently inspected/).waitFor();
    assert.deepEqual(issues,[],mode+' browser JavaScript exceptions');
-   console.log('PASS Chromium '+mode+': race→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule→local history');
+   console.log('PASS Chromium '+mode+': race→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/replay→local history');
    await context.close();
  }
 }finally{await browser?.close();server.kill('SIGTERM');}

@@ -84,3 +84,37 @@ export function changeChallenge(comparison,seed='1'){
  return {id:'change:'+comparison.from.revisionId+':'+comparison.to.revisionId+':'+hashSeed(selected.text),prompt:selected.text,answer:selected.kind,source:[comparison.from,comparison.to],kind:'revision-change'};
 }
 export function gradeChange(q,answer){return q?.kind==='revision-change'&&['added','removed'].includes(answer)&&q.answer===answer;}
+
+/** UTC history windows use complete calendar days, no local-clock/DST ambiguity. */
+export function historicalWindow(endDate, days=30, today=new Date()){
+ if(![7,30,90,365].includes(days)||!/^\d{4}-\d{2}-\d{2}$/.test(endDate||''))throw new Error('Choose a valid historical window');
+ const end=Date.parse(endDate+'T00:00:00Z');
+ const max=Date.UTC(today.getUTCFullYear(),today.getUTCMonth(),today.getUTCDate());
+ if(!Number.isFinite(end)||new Date(end).toISOString().slice(0,10)!==endDate||end>max||end<Date.UTC(2001,0,1))throw new Error('Historical date is outside the supported range');
+ const first=end-(days-1)*UTC_DAY;
+ const iso=millis=>new Date(millis).toISOString().slice(0,10);
+ return {start:iso(first),end:iso(end),rvstart:iso(end)+'T23:59:59Z',rvend:iso(first)+'T00:00:00Z',days};
+}
+export function safeRevisionCursor(value){
+ return typeof value==='string'&&value.length>=3&&value.length<=180&&/^[0-9A-Za-z:|.+-]+$/.test(value)?value:null;
+}
+export function normalizeRevisionPage(payload,{language,title,expectedPageId=null}){
+ if(!['en','fr','de','ko','tr'].includes(language))throw new Error('Unsupported Wikipedia edition');
+ const page=payload?.query?.pages?.find(p=>Number.isSafeInteger(p.pageid)&&p.pageid>0&&!p.missing);
+ if(!page||!isArticleTitle(page.title)||!Array.isArray(page.revisions))throw new Error('No readable revisions found for that window');
+ if(expectedPageId!==null&&page.pageid!==expectedPageId)throw new Error('Historical continuation changed article identity');
+ const existing=new Set(),revisions=[];
+ for(const r of page.revisions){
+  if(!Number.isSafeInteger(r.revid)||r.revid<=0||existing.has(r.revid)||!Number.isFinite(Date.parse(r.timestamp)))continue;
+  existing.add(r.revid);
+  revisions.push({pageId:page.pageid,language,title:normalizeTitle(page.title),revisionId:r.revid,timestamp:r.timestamp,size:Number.isSafeInteger(r.size)?r.size:null,comment:typeof r.comment==='string'?r.comment.slice(0,220):'',sourceUrl:'https://'+language+'.wikipedia.org/w/index.php?oldid='+r.revid});
+ }
+ const cursor=safeRevisionCursor(payload?.continue?.rvcontinue);
+ if(payload?.continue?.rvcontinue&&!cursor)throw new Error('Unsafe revision continuation token');
+ return {identity:{language,pageId:page.pageid,title:normalizeTitle(page.title)},revisions:revisions.sort((a,b)=>b.timestamp.localeCompare(a.timestamp)),nextCursor:cursor,historyUrl:'https://'+language+'.wikipedia.org/w/index.php?title='+encodeURIComponent(page.title.replaceAll(' ','_'))+'&action=history'};
+}
+export function mergeRevisionPages(current,incoming,max=150){
+ if(current?.identity?.pageId!==incoming?.identity?.pageId||current?.identity?.language!==incoming?.identity?.language)throw new Error('Cannot merge history from different articles');
+ const revisions=[...current.revisions,...incoming.revisions];
+ return {...current,revisions:[...new Map(revisions.map(r=>[r.revisionId,r])).values()].sort((a,b)=>b.timestamp.localeCompare(a.timestamp)).slice(0,max),nextCursor:incoming.nextCursor};
+}
