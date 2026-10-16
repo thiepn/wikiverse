@@ -1,5 +1,5 @@
 const KEY='wikiverse:progress:v1';
-export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],saved:{},daily:{race:null,mystery:null}});
+export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],historyChallenges:[],saved:{},daily:{race:null,mystery:null}});
 export function readProgress(storage=globalThis.localStorage) {
   try {
     const x=JSON.parse(storage.getItem(KEY));
@@ -27,6 +27,12 @@ export function saveVocabulary(progress,entry) {
 export function recordEvidenceReview(progress,entry) {
  if(entry?.graded!==false||!entry?.source)throw new Error('Evidence reflections cannot receive machine grades');
  return {...progress,evidenceReviews:[entry,...(progress.evidenceReviews||[]).filter(v=>v.id!==entry.id)].slice(0,100)};
+}
+
+export function recordHistoryChallenge(progress,entry){
+ if(!['pulse','capsule'].includes(entry?.mode)||!['pageviews-comparison','revision-change'].includes(entry?.kind)||!Array.isArray(entry.sourceIds)||!entry.sourceIds.length||typeof entry.correct!=='boolean'||!Number.isFinite(entry.score))throw new Error('Invalid source-backed historical result');
+ const record={...entry,id:entry.mode+':'+entry.at+':'+entry.sourceIds.join('|')};
+ return {...progress,historyChallenges:[record,...(progress.historyChallenges||[])].slice(0,120)};
 }
 
 export function toggleSaved(progress,article) {

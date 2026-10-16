@@ -28,12 +28,16 @@ function entity(qid){
 const articles={Mathematics:{pageid:1,revid:111,links:['Physics']},Physics:{pageid:2,revid:222,links:['History']},History:{pageid:3,revid:333,links:['Mathematics']}};
 function respond(url){
  const p=url.searchParams,action=p.get('action');
+ if(action==='query'&&p.get('prop')==='revisions'){
+   const revs=Array.from({length:8},(_,i)=>({revid:5008-i,timestamp:'2026-10-'+String(15-i).padStart(2,'0')+'T12:00:00Z',size:1600-i*20,comment:'Archived Wikipedia edit '+(8-i)}));
+   return {query:{pages:[{pageid:900,title:p.get('titles'),revisions:revs}]}};
+ }
  if(action==='query'&&p.get('prop')==='pageprops')return {query:{pages:[{pageprops:{wikibase_item:titleToId[p.get('titles')]||null}}]}};
  if(action==='query'&&p.get('list')==='search')return {query:{search:[{title:'Mathematics',pageid:1,snippet:'Mathematics'},...titles.slice(0,3).map((title,i)=>({title,pageid:10+i,snippet:title}))]}};
  if(action==='wbgetentities'&&p.get('props')==='sitelinks')return {entities:Object.fromEntries((p.get('ids')||'').split('|').map(id=>[id,{id,sitelinks:{enwiki:{title:idToTitle[id]},frwiki:{title:idToTitle[id]},dewiki:{title:idToTitle[id]},kowiki:{title:idToTitle[id]},trwiki:{title:idToTitle[id]}}}]))};
  if(action==='wbgetentities')return {entities:Object.fromEntries((p.get('ids')||'').split('|').map(id=>[id,entity(id)]))};
  if(action==='parse'){
-   const id=Number(p.get('oldid'));const title=id?Object.keys(articles).find(x=>articles[x].revid===id):p.get('page');
+   const id=Number(p.get('oldid'));const title=(id>=5001&&id<=5008)?'Marie Curie':id?Object.keys(articles).find(x=>articles[x].revid===id):p.get('page');
    const a=articles[title]||{pageid:900,revid:909,links:['Physics']};
    const lang=url.hostname.split('.')[0];
    let html='<p>Source text from '+title+'. '+a.links.map(x=>'<a href="/wiki/'+x+'">'+x+'</a>').join(' ')+'</p>';
@@ -45,7 +49,12 @@ function respond(url){
      if(lang==='fr')html='<p>Marie Curie étudiait la radioactivité dans plusieurs laboratoires scientifiques et développait une compréhension nouvelle des phénomènes physiques complexes observés pendant ses recherches.</p>'+
        '<p>Cette chercheuse utilisait des méthodes expérimentales rigoureuses pour analyser les matériaux et communiquer ses résultats scientifiques au public européen.</p>';
    }
-   return {parse:{title,pageid:lang==='fr'?1290:a.pageid,revid:lang==='fr'?1291:a.revid,text:html,links:a.links.map(x=>({ns:0,'*':x}))}};
+   if(id>=5001&&id<=5008){
+     html='<p>Marie Curie studied experimental science and investigated physical phenomena with documented research materials.</p>'+
+       (id>=5006?'<p>A later revision added documented research into scientific history and archive materials for readers.</p>':
+       '<p>An earlier revision presented the scientific record with a separate discussion of European laboratories.</p>');
+   }
+   return {parse:{title,pageid:lang==='fr'?1290:a.pageid,revid:id|| (lang==='fr'?1291:a.revid),text:html,links:a.links.map(x=>({ns:0,'*':x}))}};
  }
  return {error:{info:'Unmocked API operation: '+action}};
 }
@@ -59,6 +68,16 @@ try{
  for(const mode of ['desktop','mobile']){
    const context=await browser.newContext({viewport:mode==='desktop'?{width:1440,height:900}:{width:412,height:915},isMobile:mode==='mobile',hasTouch:mode==='mobile',deviceScaleFactor:mode==='mobile'?2:1});
    await context.route('**/w/api.php?**',route=>route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify(respond(new URL(route.request().url())))}));
+   await context.route('**/api/rest_v1/metrics/pageviews/**',route=>{
+     const url=new URL(route.request().url());const segments=url.pathname.split('/');const title=decodeURIComponent(segments[segments.length-4]).replaceAll('_',' '),start=segments.at(-2),end=segments.at(-1);
+     const project=segments.find(x=>x.endsWith('.wikipedia.org')).replace('.org','');
+     const parse=v=>Date.UTC(Number(v.slice(0,4)),Number(v.slice(4,6))-1,Number(v.slice(6,8)));
+     const entries=[];for(let day=parse(start),i=0;day<=parse(end);day+=86400000,i++){
+       const key=new Date(day).toISOString().slice(0,10).replaceAll('-','');
+       entries.push({article:title.replaceAll(' ','_'),project,access:'all-access',agent:'user',granularity:'daily',timestamp:key+'00',views:(title==='Marie Curie'?200:100)+i*2});
+     }
+     return route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify({items:entries})});
+   });
    const page=await context.newPage();page.setDefaultTimeout(12000);const issues=[];
    page.on('pageerror',e=>issues.push(e.message));
    await page.goto('http://127.0.0.1:4173',{waitUntil:'domcontentloaded'});
@@ -113,11 +132,24 @@ try{
    }
    await page.getByRole('button',{name:/Save private review/}).click();
    await page.getByText(/Review saved locally/).waitFor();
+   await nav('WikiPulse');
+   await page.locator('.hist-metric').first().waitFor();
+   assert.equal(await page.locator('.hist-metric').count(),2);
+   await page.getByRole('button',{name:/Show accessible daily data table/}).click();
+   await page.locator('.hist-table-wrap table').waitFor();
+   await page.locator('.hist-options button').first().click();
+   await page.locator('.hist-result').waitFor();
+   await nav('Time Capsule');
+   await page.locator('.hist-compare-controls select').first().waitFor();
+   await page.getByRole('button',{name:/Compare article text/}).click();
+   await page.locator('.hist-diff').waitFor();
+   await page.locator('.hist-options button').first().click();
+   await page.locator('.hist-result').waitFor();
    await nav('My Universe');await page.getByText(/Located Berlin/).waitFor();
    await page.getByText(/radioactivité/).waitFor();
    await page.getByText(/not been independently inspected/).waitFor();
    assert.deepEqual(issues,[],mode+' browser JavaScript exceptions');
-   console.log('PASS Chromium '+mode+': race→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→local history');
+   console.log('PASS Chromium '+mode+': race→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule→local history');
    await context.close();
  }
 }finally{await browser?.close();server.kill('SIGTERM');}
