@@ -48,6 +48,21 @@ export function reviewQueue(progress,now=new Date()){
    add({key,kind:'linklab',article,contrast,headline:'Recheck original article links',detail:'Previously missed a pinned-revision link question',originAt:result.at||'',source:sourceRevisionUrl(article)});
   }catch{}
  }
+
+ // Other engines remain the only graders. These are review pointers, not replayed or rescored attempts.
+ const allowedRevision=url=>typeof url==='string'&&/^https:\/\/(?:en|fr|de|ko|tr)\.wikipedia\.org\/w\/index\.php\?oldid=[1-9]\d*(?:#[a-zA-Z0-9%_.:-]+)?$/.test(url);
+ const allowedData=url=>typeof url==='string'&&(url==='https://wikimedia.org/api/rest_v1/metrics/pageviews'||/^https:\/\/www\.wikidata\.org\/wiki\/Q[1-9]\d*(?:#P[1-9]\d*)?$/.test(url));
+ const addSource=(r,mode,kind,title)=>{
+  if(r?.correct!==false||!Number.isFinite(Date.parse(r.at))||!(allowedRevision(r.source)||allowedData(r.source)))return;
+  const id=String(r.id||r.sourceIds?.join(':')||r.source).slice(0,180);
+  if(!id||/[<>]/.test(id))return;
+  const key='review:'+mode+':'+id;
+  add({key,kind,mode,article:null,headline:title,detail:'Revisit the original recorded evidence; a fresh challenge uses its own source and grader',originAt:r.at,source:r.source});
+ };
+ for(const r of progress.learning||[])if((r.mode==='polyglot'&&r.kind==='source-cloze')||(r.mode==='detective'&&r.kind==='citation-identity'))addSource(r,r.mode,'source-exercise',r.mode==='polyglot'?'Revisit an original-language passage':'Inspect the cited original reference');
+ for(const r of progress.historyChallenges||[])if((r.mode==='pulse'&&r.kind==='pageviews-comparison')||(r.mode==='capsule'&&r.kind==='revision-change'))addSource(r,r.mode,'source-exercise',r.mode==='pulse'?'Recheck the actual pageview comparison':'Reinspect an original article change');
+ for(const r of progress.knowledgeAttempts||[])if(r.mode==='galaxy'&&r.kind==='wikidata-relationship'&&r.scoringAuthority==='wikidata-property-identity-only')addSource(r,'galaxy','source-exercise','Review a recorded Wikidata relation');
+
  for(const n of progress.studyNotes||[])if(n.status==='revisit'){
   try{const article=checkedArticle(n.article),key='note:'+article.language+':'+article.pageId;
    add({key,kind:'note',article,headline:'Review your research note',detail:n.note.slice(0,130),originAt:n.updatedAt,source:sourceRevisionUrl(article)});

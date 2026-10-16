@@ -32,3 +32,5 @@ jobs:
         run: |
           npm install --no-save --no-audit --no-fund playwright-core
           CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)" node tests/browser.mjs
+      - name: Bounded live Chromium Wikimedia CORS compatibility (read-only)
+        run: CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)" node scripts/live-browser-probe.mjs

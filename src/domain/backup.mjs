@@ -46,6 +46,25 @@ function checkedProgress(value){
  for(const entry of clean.linkLab){const a=checkedArticle(entry.primary),b=checkedArticle(entry.contrast);if(a.language!==b.language||a.pageId===b.pageId||entry.scoringAuthority!=='pinned-article-links'||entry.ranked!==false||typeof entry.correct!=='boolean'||!['wikipedia-outgoing-link','wikipedia-common-link'].includes(entry.kind)||!Array.isArray(entry.sourceUrls)||entry.sourceUrls[0]!==sourceRevisionUrl(a)||entry.sourceUrls[1]!==sourceRevisionUrl(b))throw new Error('Invalid pinned Link Lab result');}
  for(const entry of clean.vocabulary){checkedArticle(entry.article);if(typeof entry.term!=='string'||!entry.term||typeof entry.meaning!=='string')throw new Error('Invalid vocabulary source identity');}
  for(const entry of clean.arenaAttempts){if(entry.ranked!==false||entry.score!==null||!Array.isArray(entry.sourceIds)||entry.sourceIds.length!==3)throw new Error('Invalid local-only arena result');}
+
+ // Keep legacy local event IDs intact, but refuse unsupported source/grade authority when records claim it.
+ const qid=x=>typeof x==='string'&&/^Q[1-9]\d*$/.test(x);
+ const wikidata=x=>typeof x==='string'&&/^https:\/\/www\.wikidata\.org\/wiki\/Q[1-9]\d*(?:#P[1-9]\d*)?$/.test(x);
+ const revision=x=>typeof x==='string'&&/^https:\/\/(?:en|fr|de|ko|tr)\.wikipedia\.org\/w\/index\.php\?oldid=[1-9]\d*(?:#[a-zA-Z0-9%_.:-]+)?$/.test(x);
+ const metrics=x=>x==='https://wikimedia.org/api/rest_v1/metrics/pageviews';
+ const grade=x=>typeof x.correct==='boolean'&&Number.isFinite(x.score)&&x.score===(x.correct?100:0);
+ for(const x of clean.races)if((x.sourceProof!==undefined&&(!Array.isArray(x.sourceProof)||x.sourceProof.some(id=>!Number.isSafeInteger(id)||id<=0)))||(x.clicks!==undefined&&(!Number.isInteger(x.clicks)||x.clicks<0)))throw new Error('Invalid source race record');
+ for(const x of clean.mysteries)if((x.source!==undefined&&!wikidata(x.source))||(x.score!==undefined&&(!Number.isFinite(x.score)||x.score<0)))throw new Error('Invalid sourced mystery record');
+ for(const x of clean.exploration)if((x.source!==undefined&&!(wikidata(x.source)||x.source==='https://www.wikidata.org/'))||(x.score!==undefined&&!Number.isFinite(x.score))||x.mode!==undefined&&!['geo','chronicle'].includes(x.mode))throw new Error('Invalid sourced exploration record');
+ for(const x of clean.learning)if(!['polyglot','detective'].includes(x.mode)||!['source-cloze','citation-identity'].includes(x.kind)||!revision(x.source)||!grade(x)||!validDate(x.at))throw new Error('Invalid original-source learning grade');
+ for(const x of clean.evidenceReviews)if(x.graded!==false||!revision(x.source)||typeof x.note!=='string'||x.note.trim().length<10)throw new Error('Citation reflections must remain original-source and ungraded');
+ for(const x of clean.historyChallenges)if(!['capsule','pulse'].includes(x.mode)||!['revision-change','pageviews-comparison'].includes(x.kind)||!Array.isArray(x.sourceIds)||!x.sourceIds.length||!grade(x)||!validDate(x.at)||!(revision(x.source)||metrics(x.source)))throw new Error('Invalid historical source grade');
+ for(const x of clean.knowledgeAttempts)if(x.mode!=='galaxy'||x.kind!=='wikidata-relationship'||x.scoringAuthority!=='wikidata-property-identity-only'||!Array.isArray(x.qids)||x.qids.length!==2||!x.qids.every(qid)||!/^P[1-9]\d*$/.test(x.propertyId||'')||x.source!=='https://www.wikidata.org/wiki/'+x.qids[0]+'#'+x.propertyId||!grade(x))throw new Error('Invalid Wikidata relationship grade');
+ for(const x of clean.vocabulary)if(x.qid!==undefined&&x.qid!==null&&!qid(x.qid))throw new Error('Invalid Wikidata vocabulary QID');
+ for(const x of clean.linkLab)if(!grade(x)||x.score!==(x.correct?100:0)||!validDate(x.at))throw new Error('Invalid pinned source quiz grade');
+ for(const [key,x] of Object.entries(clean.reviewMarkers))if(!/^(?:note:[a-z]{2}:[1-9]\d*|link:[^<>]{1,260}|review:(?:polyglot|detective|capsule|pulse|galaxy):[^<>]{1,220})$/.test(key)||!isObject(x)||x.type!=='manual-revisit-reminder'||!validDate(x.lastReviewedAt)||!validDate(x.nextAt))throw new Error('Invalid user-owned review schedule');
+ for(const [key,x] of Object.entries(clean.daily))if(x!==null&&(!isObject(x)||!validDate(x.date+'T00:00:00Z')||!isObject(x.manifest)))throw new Error('Invalid locally pinned daily manifest');
+
  if(Object.keys(clean.daily).some(k=>!['race','mystery','arena'].includes(k)))throw new Error('Invalid daily manifest field');
  const output={...initialProgress(),...clean,daily:{...initialProgress().daily,...clean.daily}};
  if(utfLength(JSON.stringify(output))>1_000_000)throw new Error('Progress exceeds existing local storage limit');

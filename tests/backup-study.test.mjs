@@ -117,7 +117,53 @@ test('Final restore recomputes preview against latest local data and never trust
  const storage=mock();saveProgress(updated,storage);
  const result=commitInspectedRestore(updated,inspection,'merge',storage);
  assert.deepEqual(new Set(result.races.map(x=>x.id)),new Set(['old-route','just-completed','incoming-source-route']));
- assert.deepEqual(readProgress(storage).races,result.races);
+ assert.deepEqual(JSON.parse(JSON.stringify(readProgress(storage).races)),JSON.parse(JSON.stringify(result.races)));
  assert.throws(()=>commitInspectedRestore(updated,{...inspection,kind:'untrusted'},'replace',storage),/Unsupported restore mode/);
  assert.equal(readProgress(storage).races.length,3);
+});
+
+test('Backup validates sourced grades across original learning, Wikidata, history and evidence engines',async()=>{
+ const p=personal(),at='2026-10-16T19:12:00Z';
+ p.learning=[
+  {id:'fr:125:456:mot',mode:'polyglot',kind:'source-cloze',score:0,correct:false,at,source:'https://fr.wikipedia.org/w/index.php?oldid=456'},
+  {id:'citation-1',mode:'detective',kind:'citation-identity',score:100,correct:true,at,source:'https://en.wikipedia.org/w/index.php?oldid=111#cite_note-1'}
+ ];
+ p.knowledgeAttempts=[{mode:'galaxy',kind:'wikidata-relationship',qids:['Q42','Q5'],propertyId:'P106',source:'https://www.wikidata.org/wiki/Q42#P106',score:0,correct:false,scoringAuthority:'wikidata-property-identity-only',at,id:'Q42:Q5:P106'}];
+ p.historyChallenges=[
+  {mode:'pulse',kind:'pageviews-comparison',source:'https://wikimedia.org/api/rest_v1/metrics/pageviews',sourceIds:['en:1','en:2'],correct:false,score:0,at},
+  {mode:'capsule',kind:'revision-change',source:'https://en.wikipedia.org/w/index.php?oldid=222',sourceIds:['111','222'],correct:true,score:100,at}
+ ];
+ p.evidenceReviews=[{graded:false,source:'https://en.wikipedia.org/w/index.php?oldid=111#cite_note-1',note:'I have not yet checked the original publication.',at}];
+ p.exploration=[{mode:'geo',source:'https://www.wikidata.org/wiki/Q42#P625',score:100,at}];
+ p.mysteries=[{id:'Q42',source:'https://www.wikidata.org/wiki/Q42',score:80,finishedAt:at}];
+ const file=await exportProgressBackup(p,now),inspection=await inspectProgressBackup(file);
+ assert.equal(inspection.progress.learning.length,2);
+ assert.equal(inspection.progress.knowledgeAttempts[0].propertyId,'P106');
+ assert.equal(inspection.progress.historyChallenges[1].sourceIds[1],'222');
+ assert.equal(inspection.progress.evidenceReviews[0].graded,false);
+ const check=async (key,value,regex)=>{
+  const corrupted={...p,[key]:value};
+  await assert.rejects(()=>exportProgressBackup(corrupted,now),regex);
+ };
+ await check('learning',[{...p.learning[0],score:100}],/learning grade/);
+ await check('learning',[{...p.learning[0],source:'https://attacker.example/record'}],/learning grade/);
+ await check('knowledgeAttempts',[{...p.knowledgeAttempts[0],source:'https://www.wikidata.org/wiki/Q99#P106'}],/Wikidata relationship grade/);
+ await check('knowledgeAttempts',[{...p.knowledgeAttempts[0],scoringAuthority:'server-approved'}],/Wikidata relationship grade/);
+ await check('evidenceReviews',[{...p.evidenceReviews[0],graded:true}],/ungraded/);
+ await check('historyChallenges',[{...p.historyChallenges[0],score:100}],/historical source grade/);
+ await check('exploration',[{...p.exploration[0],source:'https://fakesite.org'}],/exploration record/);
+ await check('mysteries',[{...p.mysteries[0],source:'https://fakesite.org'}],/mystery record/);
+});
+test('Cross-mode review markers survive recovery with local-only due-time integrity',async()=>{
+ const p=personal(),at='2026-10-16T19:12:00Z';
+ p.learning=[{id:'fr:125:456:mot',mode:'polyglot',kind:'source-cloze',score:0,correct:false,at,source:'https://fr.wikipedia.org/w/index.php?oldid=456'}];
+ p.historyChallenges=[{mode:'capsule',kind:'revision-change',source:'https://en.wikipedia.org/w/index.php?oldid=222',sourceIds:['111','222'],correct:false,score:0,at}];
+ const {reviewQueue,deferReview}=await import('../src/domain/study.mjs');
+ const due=reviewQueue(p,new Date('2026-10-17T12:00:00Z'));
+ assert.ok(due.some(x=>x.mode==='polyglot'));
+ assert.ok(due.some(x=>x.mode==='capsule'));
+ const deferred=deferReview(p,due.find(x=>x.mode==='polyglot').key,3,new Date('2026-10-17T12:00:00Z'));
+ const backup=await inspectProgressBackup(await exportProgressBackup(deferred,now));
+ assert.equal(reviewQueue(backup.progress,new Date('2026-10-17T12:00:00Z')).find(x=>x.mode==='polyglot').due,false);
+ await assert.rejects(()=>exportProgressBackup({...deferred,reviewMarkers:Object.fromEntries(Object.entries(deferred.reviewMarkers).map(([k,v])=>[k,{...v,type:'signed-remote-score'}]))},now),/review schedule/);
 });

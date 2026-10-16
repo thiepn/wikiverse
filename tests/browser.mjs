@@ -274,6 +274,24 @@ try{
    await page.locator('#study-note').waitFor();
    assert.equal(await page.locator('#study-note').inputValue(),'Compare mathematics definitions and citation provenance before the next review.','Restored private research note after reload');
    await nav('My Universe');await page.getByText(/radioactivité/).waitFor();
+
+   // Recovery + cross-mode learning: source-reviewed misses remain local and navigate to original graders.
+   await page.evaluate(()=>{
+     const p=JSON.parse(localStorage.getItem('wikiverse:progress:v1'));
+     const at=new Date(Date.now()-3600000).toISOString();
+     p.learning.push({id:'fr:125:456:mot',mode:'polyglot',kind:'source-cloze',correct:false,score:0,source:'https://fr.wikipedia.org/w/index.php?oldid=456',at});
+     p.historyChallenges.push({id:'old-revision-change',mode:'capsule',kind:'revision-change',source:'https://en.wikipedia.org/w/index.php?oldid=222',sourceIds:['111','222'],correct:false,score:0,at});
+     p.knowledgeAttempts.push({id:'Q42:Q5:P106',mode:'galaxy',kind:'wikidata-relationship',qids:['Q42','Q5'],propertyId:'P106',source:'https://www.wikidata.org/wiki/Q42#P106',correct:false,score:0,scoringAuthority:'wikidata-property-identity-only',at});
+     localStorage.setItem('wikiverse:progress:v1',JSON.stringify(p));
+   });
+   await page.reload({waitUntil:'domcontentloaded'});
+   await nav('Study Desk');
+   await page.getByRole('button',{name:/Review queue/}).click();
+   await page.locator('.study-review').filter({hasText:'original-language passage'}).waitFor();
+   await page.locator('.study-review').filter({hasText:'original article change'}).waitFor();
+   await page.locator('.study-review').filter({hasText:'recorded Wikidata relation'}).waitFor();
+   await page.locator('.study-review').filter({hasText:'original-language passage'}).getByRole('button',{name:/Open original game/}).click();
+   await page.getByRole('heading',{name:/WikiPolyglot/}).waitFor();
    assert.deepEqual(issues,[],mode+' browser JavaScript exceptions');
    console.log('PASS Chromium '+mode+': race→Link Lab→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/room/daily→Galaxy statements→missions→Study Desk source journal/review→local backup merge/replace/reload→source history');
    await context.close();
