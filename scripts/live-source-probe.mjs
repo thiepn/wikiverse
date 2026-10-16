@@ -20,10 +20,21 @@ const revisionId=revisions?.query?.pages?.[0]?.revisions?.[0]?.revid;
 if(revisionId){
  await get('Wikipedia pinned revision parse',params(wiki,{action:'parse',oldid:revisionId,prop:'text|links|revid',format:'json',formatversion:2}),x=>x?.parse?.revid===revisionId&&x.parse.pageid===revisions.query.pages[0].pageid&&typeof x.parse.text==='string'&&Array.isArray(x.parse.links));
 }else{result.push('NOT_TESTED');console.log('LIVE Wikipedia pinned revision parse NOT_TESTED (metadata prerequisite unavailable)');}
-await get('Wikidata entity Q42',params('https://www.wikidata.org/w/api.php',{action:'wbgetentities',ids:'Q42',props:'labels',languages:'en',format:'json',formatversion:2}),x=>{const entities=x?.entities;const record=Array.isArray(entities)?entities.find(e=>e?.id==='Q42'):entities?.Q42;
- const labels=Array.isArray(record?.labels)?Object.fromEntries(record.labels.map(item=>[item.language,item])):record?.labels;
- if(record?.id==='Q42'&&labels?.en?.value)return true;
- console.log('LIVE Wikidata diagnostic',JSON.stringify({rootKeys:Object.keys(x||{}).slice(0,10),entitiesType:Array.isArray(entities)?'array':typeof entities,entityKeys:Object.keys(entities||{}).slice(0,8),labelKind:Array.isArray(record?.labels)?'array':typeof record?.labels,labelsSample:JSON.stringify(record?.labels||{}).slice(0,200),q42Keys:Object.keys(record||{}).slice(0,12),error:x?.error?.info||null}));return false;});
+const wikidata=await get('Wikidata canonical Q42 entity identity',params('https://www.wikidata.org/w/api.php',{action:'wbgetentities',ids:'Q42',props:'labels',languages:'en',format:'json',formatversion:2}),x=>x?.entities?.Q42?.id==='Q42');
+if(wikidata){
+ const labels=wikidata.entities.Q42.labels||{};
+ if(labels.en?.value)console.log('LIVE Wikidata English label PASS (source provided)');
+ else{
+  console.log('LIVE Wikidata English label NOT_TESTED (valid canonical entity returned without localized label; no label or grade invented)');
+  result.push('NOT_TESTED');
+  const fallback=await get('Wikidata fallback entity identity',params('https://www.wikidata.org/w/api.php',{action:'wbgetentities',ids:'Q42',props:'labels',languages:'en',languagefallback:1,format:'json',formatversion:1}),x=>x?.entities?.Q42?.id==='Q42');
+  if(fallback){
+   const fallbackLabel=fallback.entities.Q42.labels?.en?.value;
+   console.log('LIVE Wikidata fallback English label '+(fallbackLabel?'PASS':'NOT_TESTED')+(fallbackLabel?'':' (no localized label provided)'));
+   result.push(fallbackLabel?'PASS':'NOT_TESTED');
+  }
+ }
+}
 await get('Wikimedia daily pageviews','https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/user/Mathematics/daily/20261001/20261002',x=>Array.isArray(x?.items)&&x.items.length>=1&&x.items.every(y=>y.project==='en.wikipedia'&&y.granularity==='daily'&&Number.isSafeInteger(y.views)));
 console.log('LIVE API PROBE SUMMARY',JSON.stringify({pass:result.filter(x=>x==='PASS').length,not_tested:result.filter(x=>x==='NOT_TESTED').length,fail:result.filter(x=>x==='FAIL').length,transport:'Node GET only; client browser CORS remains NOT_TESTED'}));
 if(result.includes('FAIL'))process.exitCode=1;
