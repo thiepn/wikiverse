@@ -26,6 +26,9 @@ function entity(qid){
  return {id:qid,labels:{en:{value:title}},aliases:{en:[]},claims};
 }
 const articles={Mathematics:{pageid:1,revid:111,links:['Physics']},Physics:{pageid:2,revid:222,links:['History']},History:{pageid:3,revid:333,links:['Mathematics']}};
+const sourceStarters=['Marie Curie','Albert Einstein','Ada Lovelace','Moon','France','Charles Darwin','Ancient Rome'];
+for(let i=0;i<sourceStarters.length;i++)articles[sourceStarters[i]]={pageid:900+i,revid:909+i,links:['Physics']};
+
 function respond(url){
  const p=url.searchParams,action=p.get('action');
  if(action==='query'&&p.get('prop')==='revisions'){
