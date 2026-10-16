@@ -1,0 +1,25 @@
+name: WikiVerse source qualification
+on:
+  pull_request:
+  push:
+    branches:
+      - feature/wikiverse-b1-source-backed-gameplay
+permissions:
+  contents: read
+jobs:
+  source-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install required packages
+        run: npm install --no-audit --no-fund
+      - name: Execute focused gameplay and source tests
+        run: npm test
+      - name: Check source transpilation
+        run: npm run check:syntax
+      - name: TypeScript and Vite build
+        run: npm run build
