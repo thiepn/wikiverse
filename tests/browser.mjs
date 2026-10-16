@@ -97,6 +97,17 @@ try{
    await page.locator('.learn-feedback').first().waitFor();
    await page.locator('#review-verdict').selectOption('unreviewed');
    await page.locator('#review-note').fill('The external citation has not been independently inspected in this mocked browser session.');
+   if(mode==='mobile'){
+     const b=page.getByRole('button',{name:/Save private review/});
+     await b.scrollIntoViewIfNeeded();
+     const metrics=await b.evaluate(el=>{
+       const r=el.getBoundingClientRect();const x=r.left+r.width/2,y=r.top+r.height/2;
+       const hit=document.elementFromPoint(x,y);
+       const parent=el.parentElement?.getBoundingClientRect();
+       return {button:{x:r.x,y:r.y,width:r.width,height:r.height},viewport:{w:window.innerWidth,h:window.innerHeight,scrollY:window.scrollY,visualHeight:window.visualViewport?.height},center:{x,y},hit:hit?.outerHTML.slice(0,350),parent:{x:parent?.x,y:parent?.y,width:parent?.width,height:parent?.height}};
+     });
+     console.log('MOBILE REVIEW TAP GEOMETRY',JSON.stringify(metrics));
+   }
    await page.getByRole('button',{name:/Save private review/}).click();
    await page.getByText(/Review saved locally/).waitFor();
    await nav('My Universe');await page.getByText(/Located Berlin/).waitFor();
