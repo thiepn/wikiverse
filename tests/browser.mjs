@@ -287,10 +287,10 @@ try{
    await page.reload({waitUntil:'domcontentloaded'});
    await nav('Study Desk');
    await page.getByRole('button',{name:/Review queue/}).click();
-   await page.locator('.study-review').filter({hasText:'original-language passage'}).waitFor();
-   await page.locator('.study-review').filter({hasText:'original article change'}).waitFor();
-   await page.locator('.study-review').filter({hasText:'recorded Wikidata relation'}).waitFor();
-   await page.locator('.study-review').filter({hasText:'original-language passage'}).getByRole('button',{name:/Open original game/}).click();
+   await page.locator('.study-review').filter({hasText:'original-language passage'}).first().waitFor();
+   await page.locator('.study-review').filter({hasText:'original article change'}).first().waitFor();
+   await page.locator('.study-review').filter({hasText:'recorded Wikidata relation'}).first().waitFor();
+   await page.locator('.study-review').filter({hasText:'original-language passage'}).first().getByRole('button',{name:/Open original game/}).click();
    await page.getByRole('heading',{name:/WikiPolyglot/}).waitFor();
    assert.deepEqual(issues,[],mode+' browser JavaScript exceptions');
    console.log('PASS Chromium '+mode+': race→Link Lab→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/room/daily→Galaxy statements→missions→Study Desk source journal/review→local backup merge/replace/reload→source history');
