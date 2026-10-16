@@ -85,7 +85,7 @@ try{
    await page.getByRole('button',{name:/Check order/}).click();await page.getByText(/Not quite/).waitFor();
    await page.getByRole('button',{name:/Reshuffle/}).click();
    await nav('WikiPolyglot');
-   await page.locator('.learn-pane').first().waitFor();
+   await page.locator('.learn-pane.shown').waitFor();
    await page.getByRole('textbox',{name:'Captured phrase'}).fill('radioactivité');
    await page.getByRole('textbox',{name:'Your meaning'}).fill('radioactivity');
    await page.getByRole('button',{name:/Save to My Universe/}).click();
