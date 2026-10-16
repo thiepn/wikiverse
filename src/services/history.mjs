@@ -23,7 +23,7 @@ export function analyticsRequest(path,{fetcher=fetch,ttl=6*3600000}={}){
 }
 export async function loadPageviews(title,{language='en',days=30,now=new Date(),fetcher=fetch}={}){
  const window=pulseWindow(days,now);const path=pulsePath(language,title,window);
- const data=await analyticsRequest(path,{fetcher});return normalizePageviews(data,{language,title,start:window.start,end:window.end});
+ const data=await analyticsRequest(path,{fetcher});return {...normalizePageviews(data,{language,title,start:window.start,end:window.end}),source:API+path};
 }
 export async function loadRevisionList(title,{language='en',limit=20}={}){
  if(!Number.isInteger(limit)||limit<2||limit>30)throw new Error('Invalid revision limit');
