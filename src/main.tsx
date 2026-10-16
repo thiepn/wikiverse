@@ -12,16 +12,19 @@ import Arena from './features/arena';
 import Missions from './features/missions';
 import LinkLab from './features/linklab';
 import StudyDesk from './features/study';
+import BackupCenter from './features/backup';
+import {commitPreparedRestore} from './domain/backup.mjs';
 import {recordReadingVisit,saveStudyNote,removeStudyNote,deferReview,journeyStats} from './domain/study.mjs';
 import {dailyMissionBoard} from './domain/missions.mjs';
 
-type Screen = 'study'|'linklab'|'missions'|'home'|'race'|'mystery'|'discover'|'library'|'galaxy'|'geo'|'chronicle'|'polyglot'|'detective'|'pulse'|'capsule'|'arena';
+type Screen = 'backup'|'study'|'linklab'|'missions'|'home'|'race'|'mystery'|'discover'|'library'|'galaxy'|'geo'|'chronicle'|'polyglot'|'detective'|'pulse'|'capsule'|'arena';
 type Page = {identity:{language:string;pageId:number;revisionId:number;title:string};html:string;links:string[];retrievedAt:string};
 const TODAY = dateKey();
 const pages: {id:Screen;name:string;symbol:string}[] = [
   {id:'home',name:'Overview',symbol:'◫'},
   {id:'missions',name:'Daily Missions',symbol:'◆'},
   {id:'study',name:'Study Desk',symbol:'▣'},
+  {id:'backup',name:'Backup & Recovery',symbol:'↧'},
   {id:'linklab',name:'Link Lab',symbol:'⊙'},{id:'race',name:'WikiRace',symbol:'↗'},
   {id:'mystery',name:'WikiMystery',symbol:'?'},{id:'discover',name:'Discover',symbol:'◎'},
   {id:'library',name:'My Universe',symbol:'▤'},
@@ -223,6 +226,7 @@ function App(){
         {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
         {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))}/>}
         {(screen==='pulse'||screen==='capsule')&&<HistoryExplorer key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordHistoryChallenge(p,result))}/>}
+        {screen==='backup'&&<BackupCenter progress={progress} onCommit={prepared=>{const restored=commitPreparedRestore(prepared,window.localStorage);setProgress(restored);}}/>}
         {screen==='study'&&<StudyDesk progress={progress} onRead={title=>read(title)} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
         {screen==='linklab'&&<LinkLab initialTopic={linkLabTopic} initialReview={linkLabReview} onComplete={entry=>setProgress((p:any)=>recordLinkLab(p,entry))}/>}
         {screen==='missions'&&<Missions progress={progress} onNavigate={mode=>move(mode as Screen)}/>}
@@ -243,7 +247,7 @@ function App(){
           <div className="section-head"><h2>Attention and revision challenges</h2></div>
           <div className="history">{(progress.historyChallenges||[]).length?(progress.historyChallenges||[]).slice(0,12).map((x:any)=><div key={x.id}><span>{x.mode.toUpperCase()}</span><strong>{x.title}</strong><span>{x.correct?'Correct':'Attempted'} · {x.score} points</span></div>):<p>No pageview or revision challenges completed yet.</p>}</div>
           <div className="section-head"><h2>Recent activity</h2></div><div className="history">{[...progress.races.map((x:any)=>({time:x.finishedAt,label:x.start+' → '+x.target,type:'RACE',value:x.clicks+' clicks'})),...progress.mysteries.map((x:any)=>({time:x.finishedAt,label:x.topic,type:'MYSTERY',value:x.score+' points'})),...(progress.exploration||[]).map((x:any)=>({time:x.at,label:x.title,type:x.mode.toUpperCase(),value:x.score+' points'})),...(progress.learning||[]).map((x:any)=>({time:x.at,label:x.kind,type:x.mode.toUpperCase(),value:(x.correct?'Correct':'Practice')+' · '+x.score+' points'})),...(progress.historyChallenges||[]).map((x:any)=>({time:x.at,label:x.title,type:x.mode.toUpperCase(),value:x.score+' points'})),...(progress.arenaAttempts||[]).map((x:any)=>({time:x.completedAt,label:x.challengeId,type:'TRAIL',value:x.mistakes+' non-proof attempts'})),...(progress.knowledgeAttempts||[]).map((x:any)=>({time:x.at,label:x.id,type:'GALAXY',value:x.correct?'Recorded property':'Practice response'})),...(progress.linkLab||[]).map((x:any)=>({time:x.at,label:x.primary.title,type:'LINK LAB',value:x.correct?'Source match':'Practice response'}))].sort((a,b)=>b.time.localeCompare(a.time)).slice(0,12).map((x,i)=><div key={i}><span>{x.type}</span><strong>{x.label}</strong><span>{x.value}</span></div>)}</div>
-          <div className="panel privacy"><h3>Local-first privacy</h3><p>No account, remote profiling, analytics or public leaderboard. Clearing site data removes progress.</p><button className="danger" onClick={()=>{if(window.confirm('Delete all local WikiVerse progress?'))setProgress(initialProgress());}}>Clear local progress</button></div>
+          <div className="panel privacy"><h3>Local-first privacy</h3><button onClick={()=>move('backup')}>Export or restore your local progress →</button><p>No account, remote profiling, analytics or public leaderboard. Clearing site data removes progress.</p><button className="danger" onClick={()=>{if(window.confirm('Delete all local WikiVerse progress?'))setProgress(initialProgress());}}>Clear local progress</button></div>
         </section>}
       </main><footer><span><b>WIKIVERSE</b> · Independent THIEPN project</span><div><a href="https://www.wikipedia.org/" target="_blank" rel="noreferrer">Wikipedia ↗</a><a href="https://www.wikidata.org/" target="_blank" rel="noreferrer">Wikidata ↗</a><span>{apiStats().cached} cached queries</span></div></footer>
     </div>
