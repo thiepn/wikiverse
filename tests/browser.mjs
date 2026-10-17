@@ -52,6 +52,7 @@ function respond(url){
    const a=articles[title]||{pageid:900,revid:909,links:['Physics']};
    const lang=url.hostname.split('.')[0];
    let html='<p>Source text from '+title+'. '+a.links.map(x=>'<a href="/wiki/'+x+'">'+x+'</a>').join(' ')+'</p>';
+   if(title==='Physics')html+='<p>Original physics research compares scientific observations and source material across several historical studies and documented experiments.</p><p>Published scientific articles document measurements and original evidence so readers can check the source and understand later interpretation.</p>';
    if(title==='Marie Curie'){
      html='<p>Marie Curie studied radioactivity through extensive scientific research and experimental observations on chemical materials and physical phenomena.<sup class="reference"><a href="#cite_note-ref1">[1]</a></sup></p>'+
        '<p>Careful historical documentation records the scientific discoveries described in scholarly sources and published research materials.<sup class="reference"><a href="#cite_note-ref2">[2]</a></sup></p>'+
@@ -250,6 +251,22 @@ try{
    await page.locator('.study-offline-reader').waitFor();
    assert.match(await page.locator('.study-offline-reader').innerText(),/Physics/);
    assert.match(await page.locator('.study-offline-reader a').first().getAttribute('href')||'',/oldid=222/);
+   await page.getByRole('textbox',{name:'Search this saved text'}).fill('scientific observations');
+   await page.locator('.offline-match-list button').first().click();
+   assert.match(await page.locator('.offline-workbench-paragraph').innerText(),/scientific observations/);
+   await page.getByRole('button',{name:'Locate a quotation'}).click();
+   await page.locator('.offline-workbench-options button').first().click();
+   await page.locator('.offline-workbench-feedback').waitFor();
+   await page.getByRole('button',{name:'Restore passage order'}).click();
+   await page.getByRole('button',{name:'Move card 3 down'}).click();
+   await page.getByRole('button',{name:'Move card 3 down'}).click();
+   await page.getByRole('button',{name:'Check saved source order'}).click();
+   assert.match(await page.locator('.offline-workbench-feedback').innerText(),/Matches the original saved passage order/);
+   await page.locator('.offline-workbench-paragraph p').evaluate(el=>{
+     const selection=window.getSelection(),range=document.createRange();range.selectNodeContents(el);selection.removeAllRanges();selection.addRange(range);
+   });
+   await page.getByRole('button',{name:'Keep selected text as source excerpt'}).click();
+   assert.match(await page.locator('.offline-workbench-hint[role="status"]').last().innerText(),/existing local collection/);
    await page.getByRole('button',{name:'Self-recall (ungraded)'}).click();
    await page.getByRole('button',{name:'Reveal original text'}).click();
    await page.locator('.study-offline-recall blockquote').getByText(/Source text from Physics/).waitFor();

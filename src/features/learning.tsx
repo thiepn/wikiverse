@@ -18,7 +18,7 @@ function SourcePane({page,selected,onSelect}:{page:Page;selected?:boolean;onSele
   <footer>Adapted from Wikipedia revision {page.identity.revisionId} · <a href={source} target="_blank" rel="noreferrer">Article and contributors</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a></footer>
  </section>;
 }
-export default function Learning({mode,onVocabulary,onResult,onReflection,onClip,onOffline}:{mode:Mode;onVocabulary:(x:any)=>void;onResult:(x:LearningResult)=>void;onReflection:(x:any)=>void;onClip:(x:any)=>void;onOffline:(page:Page)=>void}){
+export default function Learning({mode,onVocabulary,onResult,onReflection,onClip}:{mode:Mode;onVocabulary:(x:any)=>void;onResult:(x:LearningResult)=>void;onReflection:(x:any)=>void;onClip:(x:any)=>void}){
  const [busy,setBusy]=useState('');const [error,setError]=useState('');
  const [topic,setTopic]=useState('Marie Curie');const [language,setLanguage]=useState('fr');
  const [pair,setPair]=useState<any>(null);const [active,setActive]=useState('fr');
@@ -97,7 +97,7 @@ export default function Learning({mode,onVocabulary,onResult,onReflection,onClip
        <section className="learn-panel">
         <div className="eyebrow">VOCABULARY COLLECTION</div><h2>Capture a phrase</h2><p>Select short text in either article, or type it manually. Supply your own meaning; no machine translation is invented.</p>
         <form onSubmit={saveWord}><div className="learn-row"><select aria-label="Vocabulary language" value={captureLanguage} onChange={e=>setCaptureLanguage(e.target.value)}><option value="en">EN</option><option value={pairedLanguage}>{pairedLanguage.toUpperCase()}</option></select><input aria-label="Captured phrase" value={word} onChange={e=>setWord(e.target.value)} placeholder="Selected phrase"/><input aria-label="Your meaning" value={meaning} onChange={e=>setMeaning(e.target.value)} placeholder="Your translation / meaning"/></div><button type="submit">Save to My Universe →</button></form>
-        <div className="learn-clip-action"><button disabled={!selectedClip} onClick={()=>{onClip(selectedClip);setSelectedClip(null);}}>Save selected source excerpt →</button><button onClick={()=>{const page=readPage(pair,active);if(page)onOffline(page);}}>Save {active.toUpperCase()} compact offline reading →</button><small>Select 12–360 characters from either article. The original language and revision stay attached to this private excerpt.</small></div>
+        <div className="learn-clip-action"><button disabled={!selectedClip} onClick={()=>{onClip(selectedClip);setSelectedClip(null);}}>Save selected source excerpt →</button><small>Select 12–360 characters from either article. The original language and revision stay attached to this private excerpt.</small></div>
        </section>
        <section className="learn-panel">
         <div className="eyebrow">SOURCE-TEXT RETRIEVAL · {exerciseLanguage.toUpperCase()}</div><h2>Complete the original sentence</h2><label htmlFor="exercise-language">Practice original edition</label><select id="exercise-language" aria-label="Exercise language" value={exerciseLanguage} onChange={e=>{setExerciseLanguage(e.target.value);setRound(0);nextCloze(pair,e.target.value,0);}}><option value="en">English original</option><option value={pairedLanguage}>{LEARNING_LANGUAGES.find(x=>x.code===pairedLanguage)?.name} original</option></select>

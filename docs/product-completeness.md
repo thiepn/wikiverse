@@ -41,6 +41,13 @@ Source audit updated: October 17, 2026. Intended scope: Play, Explore, Learn, My
 
 [GitHub Actions #38972240488](https://github.com/thiepn/wikiverse/actions/runs/38972240488) on literal head `627d312743b3050fec1fb650b28757cda8764d58`: 118/118 tests, TypeScript/Vite, full mocked desktop/mobile Chromium journeys, and three genuinely cross-origin browser GETs PASS. Wikimedia Node API checks: 6 PASS, 1 NOT_TESTED for a missing default English label, zero FAIL. Do not interpret these as global upstream content quality, factual proof, all-edition CORS or release certification. The same draft PR continues with no merge/deployment.
 
+## Original-source offline workbench — October 18, 2026
+
+- Searches, passage navigation and language-aware original-text highlighting operate only on user-selected source copies. No new Wikimedia fetch, account, server or grade store is involved.
+- Local quote locator asks learners to identify one uniquely present, exact original passage; repeated/ambiguous source text is not silently treated as a correct answer. A separate three-passage ordering interaction compares saved original paragraph order. Both reveal their source basis, never assign or persist mastery or original-engine grades.
+- Original-language source excerpts can be selected from saved text and sent into the **existing** source clip collection (12–360 characters, exact single paragraph), retaining original Wikipedia language/page/revision and portable recovery; open existing topic notes from the same offline workspace.
+- Desktop and mobile acceptance exercises search, quote-location, sequence restoration, source selection, source identity and reload, alongside dedicated adversarial, duplicate-source and Unicode domain tests.
+
 ## Offline reading completion batch — October 18, 2026
 
 - Explicit user-initiated capture of the currently displayed, sanitized original article text in Discover, WikiRace and either verified WikiPolyglot edition. No crawling or unattended downloads. Up to eight retained original-language articles, 24 sections / 10,000 characters each, with a 78,000-character overall source-text budget. Existing short quotes remain separate.
