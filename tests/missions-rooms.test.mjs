@@ -62,18 +62,22 @@ test('Knowledge attempts preserve original QIDs/PID and grade only recorded stat
  assert.throws(()=>recordKnowledgeAttempt(p,{...record,scoringAuthority:'official-mastery'}));
 });
 test('Private invitation encodes identical canonical verified route without creating network authority',()=>{
- const invite=createRoomInvite(manifest,{name:'Friday Wiki Club',hostAlias:'Host',nonce:'123e4567-e89b-42d3-a456-426614174000',capacity:4,now:NOW});
+ // encodeRoomInvite checks real current expiry; use a fresh fixture rather than weakening expiry enforcement.
+ const clock=new Date();
+ const invite=createRoomInvite(manifest,{name:'Friday Wiki Club',hostAlias:'Host',nonce:'123e4567-e89b-42d3-a456-426614174000',capacity:4,now:clock});
  const encoded=encodeRoomInvite(invite);assert.ok(encoded.startsWith('WVROOM1.'));
- const decoded=decodeRoomInvite(encoded,new Date('2026-10-16T15:00:00Z'));
+ const decoded=decodeRoomInvite(encoded,new Date(clock.getTime()+3*3600000));
  assert.deepEqual(decoded,invite);assert.equal(decoded.authoritative,false);assert.equal(decoded.transport,'portable-code-only');
  assert.deepEqual(decoded.manifest.proof,proof);
 });
 test('Private invitation refuses expired, bad metadata and ranked authority claims',()=>{
- const args={name:'Friday Wiki Club',hostAlias:'Host',nonce:'123e4567-e89b-42d3-a456-426614174000',capacity:4,now:NOW};
+ const clock=new Date();
+ const args={name:'Friday Wiki Club',hostAlias:'Host',nonce:'123e4567-e89b-42d3-a456-426614174000',capacity:4,now:clock};
  const invite=createRoomInvite(manifest,args);
- assert.throws(()=>decodeRoomInvite(encodeRoomInvite(invite),new Date('2026-10-18T12:00:00Z')),/expired/);
- assert.throws(()=>validateRoomInvite({...invite,capacity:100},NOW));
- assert.throws(()=>validateRoomInvite({...invite,manifest:{...manifest,ranked:true}},NOW));
+ const encoded=encodeRoomInvite(invite);
+ assert.throws(()=>decodeRoomInvite(encoded,new Date(clock.getTime()+2*86400000)),/expired/);
+ assert.throws(()=>validateRoomInvite({...invite,capacity:100},clock));
+ assert.throws(()=>validateRoomInvite({...invite,manifest:{...manifest,ranked:true}},clock));
  assert.throws(()=>decodeRoomInvite('WVROOM1.%%%'),/Invalid/);
 });
 test('Joining is an unconfirmed local intent, never registered participant presence',()=>{

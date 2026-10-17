@@ -1,10 +1,11 @@
 /** Explicit, owner-controlled, browser-local backup. SHA256 detects accidental changes, NOT authenticates an author. */
 import {initialProgress,saveProgress} from '../services/storage.mjs';
 import {checkedArticle,sourceRevisionUrl,sourceClip} from './study.mjs';
+import {verifyOfflineCollection} from './offline.mjs';
 export const BACKUP_KIND='wikiverse-local-backup';
 export const BACKUP_FORMAT=1;
 const MAX_BYTES=1_150_000;
-const CATEGORIES={races:100,mysteries:100,exploration:100,learning:150,vocabulary:120,evidenceReviews:100,historyChallenges:120,arenaAttempts:120,knowledgeAttempts:120,linkLab:120,readingHistory:140,studyNotes:120,sourceClips:70};
+const CATEGORIES={races:100,mysteries:100,exploration:100,learning:150,vocabulary:120,evidenceReviews:100,historyChallenges:120,arenaAttempts:120,knowledgeAttempts:120,linkLab:120,readingHistory:140,studyNotes:120,sourceClips:70,offlineArticles:8};
 const SENSITIVE_KEYS=new Set(['__proto__','prototype','constructor']);
 const KEYS=new Set([...Object.keys(CATEGORIES),'saved','reviewMarkers','daily','version']);
 const isObject=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
@@ -46,6 +47,7 @@ function checkedProgress(value){
   const expected=sourceClip({article:id,excerpt:clip.excerpt,at:clip.createdAt});
   if(clip.kind!=='user-selected-source-excerpt'||clip.graded!==false||clip.id!==expected.id||clip.source!==expected.source||clip.excerpt!==expected.excerpt)throw new Error('Invalid canonical source excerpt in backup');
  }
+ verifyOfflineCollection(clean.offlineArticles);
  for(const note of clean.studyNotes){const id=checkedArticle(note.article);if(note.key!==id.language+':'+id.pageId||note.source!==sourceRevisionUrl(id)||typeof note.note!=='string'||note.note.length<3||note.note.length>1600||!['open','revisit','archived'].includes(note.status))throw new Error('Invalid source-linked research note');}
  for(const item of clean.readingHistory){const id=checkedArticle(item.article);if(item.source!==sourceRevisionUrl(id)||!validDate(item.at)||item.from&&checkedArticle(item.from).language!==id.language)throw new Error('Invalid reading source identity');}
  for(const entry of clean.linkLab){const a=checkedArticle(entry.primary),b=checkedArticle(entry.contrast);if(a.language!==b.language||a.pageId===b.pageId||entry.scoringAuthority!=='pinned-article-links'||entry.ranked!==false||typeof entry.correct!=='boolean'||!['wikipedia-outgoing-link','wikipedia-common-link'].includes(entry.kind)||!Array.isArray(entry.sourceUrls)||entry.sourceUrls[0]!==sourceRevisionUrl(a)||entry.sourceUrls[1]!==sourceRevisionUrl(b))throw new Error('Invalid pinned Link Lab result');}
@@ -98,7 +100,7 @@ export function mergeProgress(current,incoming){
  for(const [key,limit] of Object.entries(CATEGORIES)){
   const first=local[key],other=imported[key],byKey=new Map(),valueKey=(v)=>JSON.stringify(v);
   // Canonical saved/user-note identities are unique; event histories may contain multiple attempts with the same id.
-  const distinct=key==='studyNotes'||key==='vocabulary'||key==='sourceClips';
+  const distinct=key==='studyNotes'||key==='vocabulary'||key==='sourceClips'||key==='offlineArticles';
   const identity=v=>distinct?String(v.key||v.id):valueKey(v);
   for(const row of [...first,...other]){
    const id=identity(row),existing=byKey.get(id);
