@@ -62,7 +62,7 @@ test('Paragraph-order exercise derives original consecutive order; arbitrary alt
 });
 test('Text can become existing source clip only if it is an exact selection within a saved paragraph',()=>{
  const snapshot=make();
- const selected=sections[0].slice(0,80);
+ const selected=sections[0].slice(0,80).trim();
  assert.deepEqual(sourceSelection(snapshot,selected),{article:snapshot.article,excerpt:selected});
  assert.throws(()=>sourceSelection(snapshot,'Fabricated passage never in original section'),/Select 12/);
  assert.throws(()=>sourceSelection(snapshot,sections[0]+' '+sections[1]),/Select 12/);
