@@ -62,9 +62,11 @@ test('Knowledge attempts preserve original QIDs/PID and grade only recorded stat
  assert.throws(()=>recordKnowledgeAttempt(p,{...record,scoringAuthority:'official-mastery'}));
 });
 test('Private invitation encodes identical canonical verified route without creating network authority',()=>{
- const invite=createRoomInvite(manifest,{name:'Friday Wiki Club',hostAlias:'Host',nonce:'123e4567-e89b-42d3-a456-426614174000',capacity:4,now:NOW});
+ // encodeRoomInvite checks real current expiry; use a fresh fixture rather than weakening expiry enforcement.
+ const clock=new Date();
+ const invite=createRoomInvite(manifest,{name:'Friday Wiki Club',hostAlias:'Host',nonce:'123e4567-e89b-42d3-a456-426614174000',capacity:4,now:clock});
  const encoded=encodeRoomInvite(invite);assert.ok(encoded.startsWith('WVROOM1.'));
- const decoded=decodeRoomInvite(encoded,new Date('2026-10-16T15:00:00Z'));
+ const decoded=decodeRoomInvite(encoded,new Date(clock.getTime()+3*3600000));
  assert.deepEqual(decoded,invite);assert.equal(decoded.authoritative,false);assert.equal(decoded.transport,'portable-code-only');
  assert.deepEqual(decoded.manifest.proof,proof);
 });
