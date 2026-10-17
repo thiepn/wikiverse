@@ -14,7 +14,7 @@ import LinkLab from './features/linklab';
 import StudyDesk from './features/study';
 import BackupCenter from './features/backup';
 import {commitInspectedRestore} from './domain/backup.mjs';
-import {recordReadingVisit,saveStudyNote,removeStudyNote,deferReview,journeyStats} from './domain/study.mjs';
+import {recordReadingVisit,saveStudyNote,removeStudyNote,saveSourceClip,removeSourceClip,deferReview,journeyStats} from './domain/study.mjs';
 import {dailyMissionBoard} from './domain/missions.mjs';
 
 type Screen = 'backup'|'study'|'linklab'|'missions'|'home'|'race'|'mystery'|'discover'|'library'|'galaxy'|'geo'|'chronicle'|'polyglot'|'detective'|'pulse'|'capsule'|'arena';
@@ -42,7 +42,15 @@ async function playable(title:string, revision?:number):Promise<Page>{
   const displayed=makeReaderHtml(page).available;
   return {...page,links:page.links.filter((x:string)=>displayed.has(x))};
 }
-function Article({page,onTravel}:{page:Page;onTravel:(title:string)=>void}){
+function Article({page,onTravel,onClip}:{page:Page;onTravel:(title:string)=>void;onClip:(article:Page['identity'],excerpt:string)=>void}){
+  const [excerpt,setExcerpt]=useState('');
+  useEffect(()=>setExcerpt(''),[page.identity.language,page.identity.pageId,page.identity.revisionId]);
+  function captureSelection(event:React.MouseEvent<HTMLDivElement>|React.TouchEvent<HTMLDivElement>){
+    const selected=window.getSelection(),range=selected?.rangeCount?selected.getRangeAt(0):null;
+    if(!selected||!range||!event.currentTarget.contains(range.commonAncestorContainer)){setExcerpt('');return;}
+    const text=selected.toString().replace(/\s+/g,' ').trim();
+    setExcerpt(text.length>=12&&text.length<=360?text:'');
+  }
   const reader=useMemo(()=>makeReaderHtml(page),[page]);
   function handleClick(event:React.MouseEvent<HTMLDivElement>){
     const target=event.target;
@@ -57,7 +65,8 @@ function Article({page,onTravel}:{page:Page;onTravel:(title:string)=>void}){
   const history='https://'+i.language+'.wikipedia.org/w/index.php?title='+encodeURIComponent(i.title.replaceAll(' ','_'))+'&action=history';
   return <div className="article">
     <div className="article-header"><span>{i.language.toUpperCase()} WIKIPEDIA</span><span>REVISION {i.revisionId} · {page.links.length} OPEN LINKS</span></div>
-    <div className="article-body" onClick={handleClick} dangerouslySetInnerHTML={{__html:reader.html}}/>
+    <div className="article-body" onMouseUp={captureSelection} onTouchEnd={captureSelection} onClick={handleClick} dangerouslySetInnerHTML={{__html:reader.html}}/>
+    <div className="article-clip-action"><span>Highlight 12–360 characters in this article to save a small private excerpt tied to the original revision.</span><button disabled={!excerpt} onClick={()=>{onClip(page.identity,excerpt);setExcerpt('');}}>Save selected excerpt →</button></div>
     <div className="attribution">Adapted from <a href={revisionUrl(i)} target="_blank" rel="noreferrer">Wikipedia revision {i.revisionId}</a> · <a href={history} target="_blank" rel="noreferrer">Authors and history</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a></div>
   </div>;
 }
@@ -221,13 +230,13 @@ function App(){
           <div className="mode-head"><div className="eyebrow">03 / OPEN KNOWLEDGE</div><h1>Discover<span className="accent">.</span></h1><p>Read original article content, follow links and save meaningful discoveries.</p></div>
           <div className="search-box"><label htmlFor="wiki-search">SEARCH WIKIPEDIA</label><input id="wiki-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search articles…" autoComplete="off"/>{results.length>0&&<div className="search-results">{results.map(x=><button key={x.pageId} onClick={()=>{read(x.title);setResults([]);}}>{x.title} <span>READ ↗</span></button>)}</div>}</div>
           {!discover?<><div className="section-head"><h2>Start somewhere</h2></div><div className="topics">{STARTERS.map(x=><button onClick={()=>read(x)} key={x}>{x} ↗</button>)}</div></>:
-          <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">ARTICLE</div><h2>{discover.identity.title}</h2></div><div className="actions"><button onClick={()=>toggle(discover.identity)}>{saved(discover.identity)?'✓ Saved':'＋ Save'}</button><button onClick={()=>practiceLinks(discover.identity.title)}>Practice links →</button><button onClick={()=>move('study')}>Study Desk →</button></div></div><Article page={discover} onTravel={title=>read(title,discover.identity,discover.identity.language)}/><button className="text-action" onClick={()=>setDiscover(null)}>← All topics</button></div>}
+          <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">ARTICLE</div><h2>{discover.identity.title}</h2></div><div className="actions"><button onClick={()=>toggle(discover.identity)}>{saved(discover.identity)?'✓ Saved':'＋ Save'}</button><button onClick={()=>practiceLinks(discover.identity.title)}>Practice links →</button><button onClick={()=>move('study')}>Study Desk →</button></div></div><Article page={discover} onTravel={title=>read(title,discover.identity,discover.identity.language)} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))}/><button className="text-action" onClick={()=>setDiscover(null)}>← All topics</button></div>}
         </section>}
         {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
         {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))}/>}
         {(screen==='pulse'||screen==='capsule')&&<HistoryExplorer key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordHistoryChallenge(p,result))}/>}
         {screen==='backup'&&<BackupCenter progress={progress} onCommit={(inspection,mode)=>{const restored=commitInspectedRestore(currentProgress.current,inspection,mode,window.localStorage);setProgress(restored);}}/>}
-        {screen==='study'&&<StudyDesk progress={progress} onRead={(title,language)=>read(title,null,language||'en')} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onNavigateMode={mode=>move(mode as Screen)} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
+        {screen==='study'&&<StudyDesk progress={progress} onRead={(title,language)=>read(title,null,language||'en')} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onRemoveClip={id=>setProgress((p:any)=>removeSourceClip(p,id))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onNavigateMode={mode=>move(mode as Screen)} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
         {screen==='linklab'&&<LinkLab initialTopic={linkLabTopic} initialReview={linkLabReview} onComplete={entry=>setProgress((p:any)=>recordLinkLab(p,entry))}/>}
         {screen==='missions'&&<Missions progress={progress} onNavigate={mode=>move(mode as Screen)}/>}
         {screen==='arena'&&<Arena onComplete={attempt=>setProgress((p:any)=>recordArenaAttempt(p,attempt))} attempts={progress.arenaAttempts||[]} dailyManifest={progress.daily?.arena} onDailyManifest={entry=>setProgress((p:any)=>({...p,daily:{...p.daily,arena:entry}}))}/>}
@@ -236,7 +245,7 @@ function App(){
           <div className="stats"><div><span>RACES</span><strong>{stats.races}</strong></div><div><span>MYSTERIES</span><strong>{stats.mysteries}</strong></div><div><span>SAVED ARTICLES</span><strong>{stats.discoveries}</strong></div></div>
           <div className="section-head"><h2>Knowledge investigations and milestones</h2></div>
           <div className="history"><p>{(progress.knowledgeAttempts||[]).length} sourced Wikidata relationship answers and {(progress.linkLab||[]).length} original-source link audits recorded on this device. <button onClick={()=>move('missions')}>View missions & achievements →</button></p></div>
-          <div className="section-head"><h2>Reading continuity</h2></div><div className="history"><p>{journeyStats(progress).uniqueRead} distinct sourced articles read, {(progress.studyNotes||[]).length} private notes, {journeyStats(progress).reviewDue} reviews due. <button onClick={()=>move('study')}>Open Study Desk →</button></p></div>
+          <div className="section-head"><h2>Reading continuity</h2></div><div className="history"><p>{journeyStats(progress).uniqueRead} distinct sourced articles read, {(progress.studyNotes||[]).length} private notes, {(progress.sourceClips||[]).length} source excerpts, {journeyStats(progress).reviewDue} reviews due. <button onClick={()=>move('study')}>Open Study Desk →</button></p></div>
           <div className="section-head"><h2>Saved discoveries</h2></div><div className="topics">{Object.values(progress.saved).length?(Object.values(progress.saved) as Page['identity'][]).map(x=><div key={x.language+':'+x.pageId} className="saved"><button onClick={()=>read(x.title)}>{x.title} ↗</button><button aria-label={'Remove '+x.title} onClick={()=>toggle(x)}>Remove</button></div>):<p>Nothing saved yet. Explore Wikipedia to build your collection.</p>}</div>
           <div className="section-head"><h2>Saved vocabulary</h2></div>
           <div className="history">{(progress.vocabulary||[]).length?(progress.vocabulary||[]).map((v:any)=><div key={v.id}><span>{v.language.toUpperCase()}</span><strong>{v.term} — {v.meaning}</strong><a href={revisionUrl(v.article)} target="_blank" rel="noreferrer">Source ↗</a></div>):<p>No words saved. Select text in WikiPolyglot to build your collection.</p>}</div>

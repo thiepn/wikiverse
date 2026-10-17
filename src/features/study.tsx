@@ -1,9 +1,9 @@
 import React,{useMemo,useState,useEffect} from 'react';
-import {studyTopics,readingJourney,reviewQueue,journeyStats,sourceRevisionUrl,topicStudyJourney} from '../domain/study.mjs';
+import {studyTopics,readingJourney,reviewQueue,journeyStats,sourceRevisionUrl,topicStudyJourney,clipsForArticle} from '../domain/study.mjs';
 import './study.css';
 type Article={language:string;pageId:number;revisionId:number;title:string};
 type StudyEntry={key:string;article:Article;note:string;status:string;updatedAt:string;source:string};
-export default function StudyDesk({progress,onRead,onPractice,onSaveNote,onRemoveNote,onDefer,onSaveArticle,onNavigateMode}:{progress:any;onRead:(title:string,language?:string)=>void;onPractice:(title:string,review?:any)=>void;onSaveNote:(x:{article:Article;note:string;status:string})=>void;onRemoveNote:(key:string)=>void;onDefer:(key:string,days:number)=>void;onSaveArticle:(identity:Article)=>void;onNavigateMode:(mode:string)=>void}){
+export default function StudyDesk({progress,onRead,onPractice,onSaveNote,onRemoveNote,onRemoveClip,onDefer,onSaveArticle,onNavigateMode}:{progress:any;onRead:(title:string,language?:string)=>void;onPractice:(title:string,review?:any)=>void;onSaveNote:(x:{article:Article;note:string;status:string})=>void;onRemoveNote:(key:string)=>void;onRemoveClip:(id:string)=>void;onDefer:(key:string,days:number)=>void;onSaveArticle:(identity:Article)=>void;onNavigateMode:(mode:string)=>void}){
  const [tab,setTab]=useState<'topics'|'reviews'|'journey'>('topics');
  const [selected,setSelected]=useState<string>(''),[text,setText]=useState(''),[status,setStatus]=useState('open'),[error,setError]=useState('');
  const [showDeferred,setShowDeferred]=useState(false);
@@ -13,6 +13,7 @@ export default function StudyDesk({progress,onRead,onPractice,onSaveNote,onRemov
  const stats=useMemo(()=>journeyStats(progress),[progress]);
  const chosen=topics.find(x=>x.key===selected)||topics[0];
  const guided=chosen?topicStudyJourney(progress,chosen.article):null;
+ const clips=chosen?clipsForArticle(progress,chosen.article):[];
  const note=(progress.studyNotes||[]).find((n:StudyEntry)=>n.key===chosen?.key);
  useEffect(()=>{if(!selected&&topics.length)edit(topics[0]);},[selected,topics.length]);
  function edit(topic:{key:string;article:Article}){setSelected(topic.key);const previous=(progress.studyNotes||[]).find((n:StudyEntry)=>n.key===topic.key);setText(previous?.note||'');setStatus(previous?.status||'open');setError('');}
@@ -30,6 +31,7 @@ export default function StudyDesk({progress,onRead,onPractice,onSaveNote,onRemov
    {guided&&<section className="study-path"><div className="eyebrow">SOURCE-GROUNDED LEARNING JOURNEY</div><h3>{guided.done} / {guided.total} recorded actions for this article</h3><p>{guided.clips} small original-source excerpts saved for this article.</p><p>Not a proficiency score. These steps reflect existing reading, bookmark, source-question and note records, never simulated completion.</p>
      {guided.steps.map((step:any)=><div className={'study-step '+(step.done?'complete':'')} key={step.id}><span className="study-step-icon">{step.done?'✓':'○'}</span><div><strong>{step.title}</strong><small>{step.detail}</small></div><button onClick={()=>{if(step.action==='read')onRead(chosen.article.title,chosen.article.language);else if(step.action==='practice')onPractice(chosen.article.title);else if(step.action==='save')onSaveArticle(chosen.article);else document.getElementById('study-note')?.focus();}}>{step.done?'Revisit':'Do this'} →</button></div>)}
     </section>}
+   <section className="study-clips"><h3>Saved source excerpts · {clips.length}</h3><p>Small original-language passages you've selected remain readable without a network connection. Check the linked original revision for full context and author attribution.</p>{clips.length?<div className="study-clip-list">{clips.map((clip:any)=><article key={clip.id} lang={clip.article.language}><blockquote>{clip.excerpt}</blockquote><div className="study-actions"><a href={clip.source} target="_blank" rel="noreferrer">Original {clip.article.language.toUpperCase()} revision {clip.article.revisionId} ↗</a><button aria-label={'Remove excerpt from '+clip.article.title} onClick={()=>onRemoveClip(clip.id)}>Delete excerpt</button></div></article>)}</div>:<p>Highlight text in Discover or WikiPolyglot, then select “Save selected excerpt” to add it here.</p>}</section>
    <form onSubmit={save}><h3>Private research note</h3><p>This is your own interpretation or learning note. It is not graded or published.</p><label htmlFor="study-note">NOTE</label><textarea id="study-note" rows={6} value={text} onChange={e=>setText(e.target.value)} minLength={3} maxLength={1600} required placeholder="What do you want to remember, compare, or investigate next?"/>
     <label htmlFor="study-status">YOUR FOLLOW-UP INTENTION</label><select id="study-status" value={status} onChange={e=>setStatus(e.target.value)}><option value="open">Keep active</option><option value="revisit">Add to review queue</option><option value="archived">Archive personal note</option></select>
     <div className="study-actions"><button type="submit">Save private note →</button>{note&&<button type="button" onClick={()=>{onRemoveNote(note.key);setText('');setStatus('open');}}>Delete note</button>}</div>
