@@ -1,7 +1,7 @@
 import React,{useMemo,useState} from 'react';
 import {exportProgressBackup,inspectProgressBackup,prepareProgressRestore,progressCounts} from '../domain/backup.mjs';
 import './backup.css';
-const rows=['saved','races','mysteries','readingHistory','studyNotes','reviewMarkers','linkLab','vocabulary','evidenceReviews','arenaAttempts','historyChallenges','learning','knowledgeAttempts','exploration'];
+const rows=['saved','races','mysteries','readingHistory','studyNotes','offlineArticles','sourceClips','reviewMarkers','linkLab','vocabulary','evidenceReviews','arenaAttempts','historyChallenges','learning','knowledgeAttempts','exploration'];
 export default function BackupCenter({progress,onCommit}:{progress:any;onCommit:(inspection:any,mode:'merge'|'replace')=>void}){
  const [inspection,setInspection]=useState<any>(null),[mode,setMode]=useState<'merge'|'replace'>('merge'),[armed,setArmed]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[loading,setLoading]=useState(false);
  const prepared=useMemo(()=>{if(!inspection)return null;try{return prepareProgressRestore(progress,inspection,mode);}catch(e:any){return {error:e.message};}},[progress,inspection,mode]);
@@ -32,7 +32,7 @@ export default function BackupCenter({progress,onCommit}:{progress:any;onCommit:
   <div className="mode-head"><div className="eyebrow">16 / PRIVATE DATA OWNERSHIP</div><h1>Backup & Recovery<span className="accent">.</span></h1><p>Export or restore your personal WikiVerse progress without an account or server. Review exactly what is in a file before committing it to this browser.</p></div>
   {error&&<div className="error" role="alert">{error} <button onClick={()=>setError('')}>Dismiss</button></div>}
   {notice&&<p className="backup-notice" role="status">{notice}</p>}
-  <div className="backup-columns"><section className="backup-panel"><div className="eyebrow">YOUR CURRENT DEVICE</div><h2>Download a private backup</h2><p>Includes local races, sourced game records, saved pages, vocabulary, private evidence notes, study journeys, daily manifests and review dates.</p>
+  <div className="backup-columns"><section className="backup-panel"><div className="eyebrow">YOUR CURRENT DEVICE</div><h2>Download a private backup</h2><p>Includes local races, sourced game records, saved pages, compact offline reading copies, vocabulary, private evidence notes, study journeys, daily manifests and review dates.</p>
    <div className="backup-counts"><span>Saved articles <b>{counts.saved}</b></span><span>Reading visits <b>{counts.readingHistory}</b></span><span>Study notes <b>{counts.studyNotes}</b></span><span>Link Lab attempts <b>{counts.linkLab}</b></span></div>
    <button disabled={loading} className="primary" onClick={()=>void download()}>Download full JSON backup →</button><p className="backup-caution">No data is uploaded. A backup file contains private information, so protect it like a personal document. Its SHA-256 checksum checks accidental changes, not the identity or trustworthiness of its author.</p>
   </section>

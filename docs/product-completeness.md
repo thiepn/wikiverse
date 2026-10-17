@@ -19,7 +19,7 @@ Source audit updated: October 17, 2026. Intended scope: Play, Explore, Learn, My
 | Multiplayer backend | **NOT IMPLEMENTED**. Only invitation codes and protocol validators exist; no transport/auth/server-owned membership | `src/domain/room-protocol.mjs` |
 | Authoritative leaderboards, secure competitive scoring and global daily challenge authority | **NOT IMPLEMENTED**. Results and manifests are locally editable and unranked | `src/domain/arena.mjs`, `src/services/storage.mjs` |
 | Local export/import and recovery | **IMPLEMENTED** for manual device-to-device JSON file transfer. Cloud sync, identity authentication, automatic cross-device merging and durable server backups remain **NOT IMPLEMENTED** | `src/domain/backup.mjs`, `src/features/backup.tsx` |
-| Offline Wiki reading and durable source cache | **NOT IMPLEMENTED**. In-memory request cache is bounded and not a full offline archive | `src/services/wikimedia.mjs` |
+| Offline Wiki reading and durable source cache | **PARTIALLY IMPLEMENTED**. Owner-selected bounded text-only original-revision reading copies with offline accessible reader and ungraded reveal/self-recall; no automatic full-page offline archive or remote cache | `src/services/wikimedia.mjs` |
 | Full production source reliability and accessibility | **NOT QUALIFIED**. Limited live Node **and Chromium CORS** APIs passed; full live gameplay, real-device/assistive-tech tests, rate limits, multiple editions, licensing and security remain open | `.github/workflows/validate.yml` |
 
 ## Prioritized subsequent implementation batches
@@ -40,3 +40,10 @@ Source audit updated: October 17, 2026. Intended scope: Play, Explore, Learn, My
 ## Most recent acceptance
 
 [GitHub Actions #38972240488](https://github.com/thiepn/wikiverse/actions/runs/38972240488) on literal head `627d312743b3050fec1fb650b28757cda8764d58`: 118/118 tests, TypeScript/Vite, full mocked desktop/mobile Chromium journeys, and three genuinely cross-origin browser GETs PASS. Wikimedia Node API checks: 6 PASS, 1 NOT_TESTED for a missing default English label, zero FAIL. Do not interpret these as global upstream content quality, factual proof, all-edition CORS or release certification. The same draft PR continues with no merge/deployment.
+
+## Offline reading completion batch — October 18, 2026
+
+- Explicit user-initiated capture of the currently displayed, sanitized original article text in Discover, WikiRace and either verified WikiPolyglot edition. No crawling or unattended downloads. Up to eight retained original-language articles, 24 sections / 10,000 characters each, with a 78,000-character overall source-text budget. Existing short quotes remain separate.
+- Study Desk offline shelf exposes a keyboard-usable reader, size controls and ungraded self-recall reveal. Only the saved text is available without network; links to full upstream articles naturally still require connectivity. Capture stores plain text and original language/page/revision identities, never HTML or grading authority.
+- Uses unchanged `wikiverse:progress:v1` local authority and manual backup merge/replace (backward-compatible with backups lacking new collection). Existing source-scored engines cannot use offline text to award credit.
+- Validation must reject missing IDs, altered revision URL, unwanted fields, oversized collections, duplicate identities, and keep current local data if capacity/restore validation fails.

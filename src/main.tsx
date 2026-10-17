@@ -16,6 +16,8 @@ import BackupCenter from './features/backup';
 import {commitInspectedRestore} from './domain/backup.mjs';
 import {recordReadingVisit,saveStudyNote,removeStudyNote,saveSourceClip,removeSourceClip,deferReview,journeyStats} from './domain/study.mjs';
 import {dailyMissionBoard} from './domain/missions.mjs';
+import {captureOfflineReading} from './services/offline.mjs';
+import {saveOfflineSnapshot,removeOfflineSnapshot} from './domain/offline.mjs';
 
 type Screen = 'backup'|'study'|'linklab'|'missions'|'home'|'race'|'mystery'|'discover'|'library'|'galaxy'|'geo'|'chronicle'|'polyglot'|'detective'|'pulse'|'capsule'|'arena';
 type Page = {identity:{language:string;pageId:number;revisionId:number;title:string};html:string;links:string[];retrievedAt:string};
@@ -42,7 +44,7 @@ async function playable(title:string, revision?:number):Promise<Page>{
   const displayed=makeReaderHtml(page).available;
   return {...page,links:page.links.filter((x:string)=>displayed.has(x))};
 }
-function Article({page,onTravel,onClip}:{page:Page;onTravel:(title:string)=>void;onClip:(article:Page['identity'],excerpt:string)=>void}){
+function Article({page,onTravel,onClip,onOffline}:{page:Page;onTravel:(title:string)=>void;onClip:(article:Page['identity'],excerpt:string)=>void;onOffline:(page:Page,renderedHtml:string)=>void}){
   const [excerpt,setExcerpt]=useState('');
   useEffect(()=>setExcerpt(''),[page.identity.language,page.identity.pageId,page.identity.revisionId]);
   function captureSelection(event:React.MouseEvent<HTMLDivElement>|React.TouchEvent<HTMLDivElement>){
@@ -66,7 +68,7 @@ function Article({page,onTravel,onClip}:{page:Page;onTravel:(title:string)=>void
   return <div className="article">
     <div className="article-header"><span>{i.language.toUpperCase()} WIKIPEDIA</span><span>REVISION {i.revisionId} · {page.links.length} OPEN LINKS</span></div>
     <div className="article-body" onMouseUp={captureSelection} onTouchEnd={captureSelection} onClick={handleClick} dangerouslySetInnerHTML={{__html:reader.html}}/>
-    <div className="article-clip-action"><span>Highlight 12–360 characters in this article to save a small private excerpt tied to the original revision.</span><button disabled={!excerpt} onClick={()=>{onClip(page.identity,excerpt);setExcerpt('');}}>Save selected excerpt →</button></div>
+    <div className="article-clip-action"><span>Highlight 12–360 characters to save a small private excerpt, or explicitly save a bounded text-only offline reading copy.</span><button disabled={!excerpt} onClick={()=>{onClip(page.identity,excerpt);setExcerpt('');}}>Save selected excerpt →</button><button onClick={()=>onOffline(page,reader.html)}>Save compact offline reading →</button></div>
     <div className="attribution">Adapted from <a href={revisionUrl(i)} target="_blank" rel="noreferrer">Wikipedia revision {i.revisionId}</a> · <a href={history} target="_blank" rel="noreferrer">Authors and history</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a></div>
   </div>;
 }
@@ -76,6 +78,7 @@ function App(){
   const currentProgress=useRef(progress);
   const [busy,setBusy]=useState('');
   const [error,setError]=useState('');
+  const [notice,setNotice]=useState('');
   const [race,setRace]=useState<any>(null);
   const [starter,setStarter]=useState(STARTERS[0]);
   const [linkLabTopic,setLinkLabTopic]=useState('Mathematics');
@@ -94,6 +97,13 @@ function App(){
   const raceDone=progress.races.some((r:any)=>r.dailyKey===TODAY);
   const mysteryDone=progress.mysteries.some((r:any)=>r.dailyKey===TODAY);
   function move(next:Screen){op.current++;setScreen(next);setMobileNav(false);setError('');setBusy('');}
+  function saveOffline(page:Page,html:string){
+    try{
+      const next=saveOfflineSnapshot(currentProgress.current,captureOfflineReading(page,html));
+      currentProgress.current=next;setProgress(next);setError('');
+      setNotice('Compact offline reading saved locally. Open Study Desk → Offline reading; the copy is not authoritative grading evidence.');
+    }catch(e:any){setError(e.message||'Unable to save offline reading');}
+  }
   function saved(id:Page['identity']){return Boolean(progress.saved[id.language+':'+id.pageId]);}
   function toggle(id:Page['identity']){setProgress((p:any)=>toggleSaved(p,id));}
   async function startRace(daily:boolean){
@@ -182,6 +192,7 @@ function App(){
       <header><div className="flex"><button className="menu" aria-label="Toggle navigation" aria-expanded={mobileNav} onClick={()=>setMobileNav(!mobileNav)}>☰</button><span className="eyebrow">WIKIVERSE / {pages.find(p=>p.id===screen)?.name.toUpperCase()}</span></div><div className="eyebrow">● WIKIMEDIA DATA <span className="top-saved">· {stats.discoveries} SAVED</span></div></header>
       <main>
         {error&&<div className="error" role="alert">{error} <button onClick={()=>setError('')}>Dismiss</button></div>}
+        {notice&&<p role="status" className="study-confirm">{notice} <button onClick={()=>setNotice('')}>Dismiss</button></p>}
         {busy&&<div className="loading" role="status">{busy}</div>}
         {screen==='home'&&<>
           <section className="hero"><div className="eyebrow">01 / THE KNOWLEDGE UNIVERSE</div><h1>Everything is<br/><em>connected.</em></h1><p>Navigate real Wikipedia articles, solve Wikidata mysteries and build your personal map of discoveries.</p><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>startRace(true)}>Start today's race ↗</button><button disabled={Boolean(busy)} onClick={()=>startMystery(true)}>Today's mystery →</button></div></section>
@@ -214,7 +225,7 @@ function App(){
           {!race?<div className="panel"><h2>Generate a race</h2><p>The game checks a complete two-hop path before the challenge begins. Challenges are unranked.</p><label htmlFor="start">Starting article</label><select id="start" value={starter} onChange={e=>setStarter(e.target.value)}>{STARTERS.map(x=><option key={x}>{x}</option>)}</select><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>startRace(false)}>Generate verified route ↗</button><button disabled={Boolean(busy)} onClick={()=>startRace(true)}>Daily race · {TODAY}</button></div></div>:
           <><div className="scoreboard"><div><span>START</span><strong>{race.manifest.start.title}</strong></div><span className="arrow">→</span><div><span>TARGET</span><strong>{race.manifest.target.title}</strong></div><div><span>CLICKS</span><strong>{race.trail.length-1}</strong></div></div>
             {race.finished?<div className="panel success"><div className="eyebrow">DESTINATION REACHED</div><h2>You found the path.</h2><p>{race.trail.map((x:any)=>x.title).join(' → ')}</p><p>{race.trail.length-1} verified moves, saved locally.</p><button className="primary" onClick={()=>startRace(false)}>Race again →</button></div>:
-            <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">CURRENT ARTICLE</div><h2>{race.page.identity.title}</h2></div><button onClick={()=>setRaceHint(!raceHint)}>{raceHint?'Hide hint':'Show proof hint'}</button></div>{raceHint&&<div className="hint">One proven (not necessarily shortest) route: {race.manifest.proof.map((x:any)=>x.title).join(' → ')}</div>}<p className="eyebrow">CLICK INLINE SOURCE LINKS TO TRAVEL</p><Article page={race.page} onTravel={travel} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))}/></div>}
+            <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">CURRENT ARTICLE</div><h2>{race.page.identity.title}</h2></div><button onClick={()=>setRaceHint(!raceHint)}>{raceHint?'Hide hint':'Show proof hint'}</button></div>{raceHint&&<div className="hint">One proven (not necessarily shortest) route: {race.manifest.proof.map((x:any)=>x.title).join(' → ')}</div>}<p className="eyebrow">CLICK INLINE SOURCE LINKS TO TRAVEL</p><Article page={race.page} onTravel={travel} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))} onOffline={saveOffline}/></div>}
             <div className="trail"><span className="eyebrow">YOUR PATH</span><p>{race.trail.map((x:any)=>x.title).join(' → ')}</p></div><button className="text-action" onClick={()=>{op.current++;setRace(null);setBusy('');}}>← Leave race</button>
           </>}
         </section>}
@@ -233,10 +244,10 @@ function App(){
           <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">ARTICLE</div><h2>{discover.identity.title}</h2></div><div className="actions"><button onClick={()=>toggle(discover.identity)}>{saved(discover.identity)?'✓ Saved':'＋ Save'}</button><button onClick={()=>practiceLinks(discover.identity.title)}>Practice links →</button><button onClick={()=>move('study')}>Study Desk →</button></div></div><Article page={discover} onTravel={title=>read(title,discover.identity,discover.identity.language)} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))}/><button className="text-action" onClick={()=>setDiscover(null)}>← All topics</button></div>}
         </section>}
         {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
-        {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))} onClip={(entry:any)=>setProgress((p:any)=>saveSourceClip(p,entry))}/>}
+        {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))} onClip={(entry:any)=>setProgress((p:any)=>saveSourceClip(p,entry))} onOffline={(page:any)=>saveOffline(page,makeReaderHtml(page).html)}/>}
         {(screen==='pulse'||screen==='capsule')&&<HistoryExplorer key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordHistoryChallenge(p,result))}/>}
         {screen==='backup'&&<BackupCenter progress={progress} onCommit={(inspection,mode)=>{const restored=commitInspectedRestore(currentProgress.current,inspection,mode,window.localStorage);setProgress(restored);}}/>}
-        {screen==='study'&&<StudyDesk progress={progress} onRead={(title,language)=>read(title,null,language||'en')} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onRemoveClip={id=>setProgress((p:any)=>removeSourceClip(p,id))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onNavigateMode={mode=>move(mode as Screen)} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
+        {screen==='study'&&<StudyDesk progress={progress} onRead={(title,language)=>read(title,null,language||'en')} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onRemoveClip={id=>setProgress((p:any)=>removeSourceClip(p,id))} onRemoveOffline={key=>setProgress((p:any)=>removeOfflineSnapshot(p,key))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onNavigateMode={mode=>move(mode as Screen)} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
         {screen==='linklab'&&<LinkLab initialTopic={linkLabTopic} initialReview={linkLabReview} onComplete={entry=>setProgress((p:any)=>recordLinkLab(p,entry))}/>}
         {screen==='missions'&&<Missions progress={progress} onNavigate={mode=>move(mode as Screen)}/>}
         {screen==='arena'&&<Arena onComplete={attempt=>setProgress((p:any)=>recordArenaAttempt(p,attempt))} attempts={progress.arenaAttempts||[]} dailyManifest={progress.daily?.arena} onDailyManifest={entry=>setProgress((p:any)=>({...p,daily:{...p.daily,arena:entry}}))}/>}

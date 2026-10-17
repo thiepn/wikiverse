@@ -1,5 +1,5 @@
 const KEY='wikiverse:progress:v1';
-export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],historyChallenges:[],arenaAttempts:[],knowledgeAttempts:[],linkLab:[],readingHistory:[],studyNotes:[],sourceClips:[],reviewMarkers:{},saved:{},daily:{race:null,mystery:null,arena:null}});
+export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],historyChallenges:[],arenaAttempts:[],knowledgeAttempts:[],linkLab:[],readingHistory:[],studyNotes:[],sourceClips:[],offlineArticles:[],reviewMarkers:{},saved:{},daily:{race:null,mystery:null,arena:null}});
 export function readProgress(storage=globalThis.localStorage) {
   try {
     const x=JSON.parse(storage.getItem(KEY));
