@@ -13,3 +13,5 @@
 .learn .learn-source-bar{min-width:0;overflow-wrap:anywhere}
 @media(max-width:960px){.learn .learn-exercises{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){.learn .learn-panes{grid-template-columns:minmax(0,1fr)}.learn .learn-choices{grid-template-columns:repeat(2,minmax(0,1fr))}.learn .learn-mobile-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.learn-clip-action{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin-top:15px}.learn-clip-action small{color:#bbced6;font-size:12px}.learn-clip-action button:disabled{opacity:.45;cursor:not-allowed}

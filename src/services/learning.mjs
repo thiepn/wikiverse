@@ -11,7 +11,9 @@ export async function loadLanguagePair(title,secondary='fr',origin='en'){
    loadArticle(sitelinks.left.title,null,'en'),
    loadArticle(sitelinks.right.title,null,secondary)
  ]);
- return {qid,articles:{en:left,[secondary]:right},selectedLanguage:secondary,
+ const verified=await Promise.all([pageEntityId(left.identity.title,'en'),pageEntityId(right.identity.title,secondary)]);
+ if(verified[0]!==qid||verified[1]!==qid)throw new Error('Wikidata sitelinks and loaded article entities disagree; no language practice will be graded');
+ return {qid,articles:{en:left,[secondary]:right},selectedLanguage:secondary,verifiedSitelinks:true,
    sourceUrl:'https://www.wikidata.org/wiki/'+qid,retrievedAt:new Date().toISOString()};
 }
 export function articleParagraphs(page){

@@ -30,6 +30,7 @@ export function studyTopics(progress){
  const topics=new Map();
  const add=(id,origin,at)=>{try{const article=checkedArticle(id),key=article.language+':'+article.pageId;if(!topics.has(key))topics.set(key,{key,article,origin,at:at||''});}catch{}};
  for(const n of progress.studyNotes||[])add(n.article,'note',n.updatedAt);
+ for(const clip of progress.sourceClips||[])add(clip.article,'excerpt',clip.createdAt);
  for(const x of progress.readingHistory||[])add(x.article,'reading',x.at);
  for(const x of Object.values(progress.saved||{}))add(x,'saved',x.savedAt);
  return [...topics.values()].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,75);
@@ -101,5 +102,5 @@ export function topicStudyJourney(progress,source){
   {id:'practice',title:'Answer a verified source-link question',detail:'Only correct answers from the original Link Lab grader count',done:links.length>0,action:'practice',count:links.length},
   {id:'reflect',title:'Write your personal research note',detail:'Save a private explanation or question linked to a source revision',done:!!note,action:'note',count:Number(!!note)}
  ];
- return {article:identity,steps,done:steps.filter(x=>x.done).length,total:steps.length,authority:'source-actions-only-not-mastery',next:steps.find(x=>!x.done)||null};
+ return {article:identity,steps,clips:clipsForArticle(progress,identity).length,done:steps.filter(x=>x.done).length,total:steps.length,authority:'source-actions-only-not-mastery',next:steps.find(x=>!x.done)||null};
 }

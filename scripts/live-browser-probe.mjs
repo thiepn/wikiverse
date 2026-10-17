@@ -27,6 +27,9 @@ try{
   await page.goto('http://127.0.0.1:'+port+'/',{waitUntil:'domcontentloaded',timeout:10000});
   const cases=[
    {label:'Wikipedia Action API CORS',url:'https://en.wikipedia.org/w/api.php?action=query&meta=siteinfo&siprop=general&format=json&formatversion=2&origin=*',kind:'wiki'},
+   {label:'French Wikipedia edition CORS',url:'https://fr.wikipedia.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item&titles=Marie%20Curie&format=json&formatversion=2&origin=*',kind:'pair-fr'},
+   {label:'German Wikipedia edition CORS',url:'https://de.wikipedia.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item&titles=Marie%20Curie&format=json&formatversion=2&origin=*',kind:'pair-de'},
+   {label:'Korean Wikipedia edition CORS',url:'https://ko.wikipedia.org/w/api.php?action=query&prop=pageprops&ppprop=wikibase_item&titles=%EB%A7%88%EB%A6%AC%20%ED%80%B4%EB%A6%AC&format=json&formatversion=2&origin=*',kind:'pair-ko'},
    {label:'Wikidata Action API CORS',url:'https://www.wikidata.org/w/api.php?action=wbgetentities&ids=Q42&props=labels&languages=en&languagefallback=1&format=json&formatversion=1&origin=*',kind:'wikidata'},
    {label:'Wikimedia Pageviews CORS',url:'https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/user/Mathematics/daily/20261001/20261002',kind:'views'}
   ];
@@ -37,7 +40,7 @@ try{
      const response=await fetch(url,{method:'GET',mode:'cors',credentials:'omit',headers:{Accept:'application/json'},signal:controller.signal});
      if(!response.ok)return {status:[401,403,429,500,502,503,504].includes(response.status)?'NOT_TESTED':'FAIL',detail:'HTTP '+response.status};
      const body=await response.json();
-     const ok=kind==='wiki'?typeof body.query?.general?.sitename==='string':kind==='wikidata'?body.entities?.Q42?.id==='Q42':Array.isArray(body.items)&&body.items.some(x=>x.project==='en.wikipedia');
+     const ok=kind==='wiki'?typeof body.query?.general?.sitename==='string':kind.startsWith('pair-')?body.query?.pages?.some(x=>x.pageprops?.wikibase_item==='Q7186'):kind==='wikidata'?body.entities?.Q42?.id==='Q42':Array.isArray(body.items)&&body.items.some(x=>x.project==='en.wikipedia');
      return {status:ok?'PASS':'FAIL',detail:ok?'response validated':'source payload missing expected identity'};
     }catch(error){return {status:'NOT_TESTED',detail:String(error?.message||error).slice(0,100)};}
     finally{clearTimeout(timer);}

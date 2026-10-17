@@ -1,10 +1,10 @@
 /** Explicit, owner-controlled, browser-local backup. SHA256 detects accidental changes, NOT authenticates an author. */
 import {initialProgress,saveProgress} from '../services/storage.mjs';
-import {checkedArticle,sourceRevisionUrl} from './study.mjs';
+import {checkedArticle,sourceRevisionUrl,sourceClip} from './study.mjs';
 export const BACKUP_KIND='wikiverse-local-backup';
 export const BACKUP_FORMAT=1;
 const MAX_BYTES=1_150_000;
-const CATEGORIES={races:100,mysteries:100,exploration:100,learning:150,vocabulary:120,evidenceReviews:100,historyChallenges:120,arenaAttempts:120,knowledgeAttempts:120,linkLab:120,readingHistory:140,studyNotes:120};
+const CATEGORIES={races:100,mysteries:100,exploration:100,learning:150,vocabulary:120,evidenceReviews:100,historyChallenges:120,arenaAttempts:120,knowledgeAttempts:120,linkLab:120,readingHistory:140,studyNotes:120,sourceClips:70};
 const SENSITIVE_KEYS=new Set(['__proto__','prototype','constructor']);
 const KEYS=new Set([...Object.keys(CATEGORIES),'saved','reviewMarkers','daily','version']);
 const isObject=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
@@ -30,7 +30,7 @@ function boundedClone(value,depth=0){
 }
 function checkedProgress(value){
  if(!isObject(value)||value.version!==1||Object.keys(value).some(k=>!KEYS.has(k)))throw new Error('Unsupported progress schema; original local data is unchanged');
- const clean=boundedClone(value);
+ const clean=boundedClone({...initialProgress(),...value});
  for(const [name,limit] of Object.entries(CATEGORIES)){
   if(!Array.isArray(clean[name])||clean[name].length>limit)throw new Error('Unsupported or oversized '+name+' history');
   for(const entry of clean[name])if(!isObject(entry))throw new Error('Invalid '+name+' history entry');
@@ -40,6 +40,11 @@ function checkedProgress(value){
  for(const [key,entry] of Object.entries(clean.saved)){
   const id=checkedArticle(entry);
   if(key!==id.language+':'+id.pageId)throw new Error('Saved page identity mismatch');
+ }
+ for(const clip of clean.sourceClips){
+  const id=checkedArticle(clip.article);
+  const expected=sourceClip({article:id,excerpt:clip.excerpt,at:clip.createdAt});
+  if(clip.kind!=='user-selected-source-excerpt'||clip.graded!==false||clip.id!==expected.id||clip.source!==expected.source||clip.excerpt!==expected.excerpt)throw new Error('Invalid canonical source excerpt in backup');
  }
  for(const note of clean.studyNotes){const id=checkedArticle(note.article);if(note.key!==id.language+':'+id.pageId||note.source!==sourceRevisionUrl(id)||typeof note.note!=='string'||note.note.length<3||note.note.length>1600||!['open','revisit','archived'].includes(note.status))throw new Error('Invalid source-linked research note');}
  for(const item of clean.readingHistory){const id=checkedArticle(item.article);if(item.source!==sourceRevisionUrl(id)||!validDate(item.at)||item.from&&checkedArticle(item.from).language!==id.language)throw new Error('Invalid reading source identity');}
@@ -93,7 +98,7 @@ export function mergeProgress(current,incoming){
  for(const [key,limit] of Object.entries(CATEGORIES)){
   const first=local[key],other=imported[key],byKey=new Map(),valueKey=(v)=>JSON.stringify(v);
   // Canonical saved/user-note identities are unique; event histories may contain multiple attempts with the same id.
-  const distinct=key==='studyNotes'||key==='vocabulary';
+  const distinct=key==='studyNotes'||key==='vocabulary'||key==='sourceClips';
   const identity=v=>distinct?String(v.key||v.id):valueKey(v);
   for(const row of [...first,...other]){
    const id=identity(row),existing=byKey.get(id);

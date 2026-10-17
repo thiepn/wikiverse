@@ -56,7 +56,7 @@ function Article({page,onTravel}:{page:Page;onTravel:(title:string)=>void}){
   const i=page.identity;
   const history='https://'+i.language+'.wikipedia.org/w/index.php?title='+encodeURIComponent(i.title.replaceAll(' ','_'))+'&action=history';
   return <div className="article">
-    <div className="article-header"><span>ENGLISH WIKIPEDIA</span><span>REVISION {i.revisionId} · {page.links.length} OPEN LINKS</span></div>
+    <div className="article-header"><span>{i.language.toUpperCase()} WIKIPEDIA</span><span>REVISION {i.revisionId} · {page.links.length} OPEN LINKS</span></div>
     <div className="article-body" onClick={handleClick} dangerouslySetInnerHTML={{__html:reader.html}}/>
     <div className="attribution">Adapted from <a href={revisionUrl(i)} target="_blank" rel="noreferrer">Wikipedia revision {i.revisionId}</a> · <a href={history} target="_blank" rel="noreferrer">Authors and history</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a></div>
   </div>;
@@ -150,9 +150,9 @@ function App(){
     if(correct)finishMystery(next);else setMystery(next);
   }
   function practiceLinks(title:string,review:any=null){setLinkLabTopic(title);setLinkLabReview(review);move('linklab');}
-  async function read(title:string,from:Page['identity']|null=null){
-    const number=++op.current;setScreen('discover');setBusy('Reading '+title+'…');setError('');
-    try{const page=await loadArticle(title);if(number===op.current){setDiscover(page);setProgress((p:any)=>recordReadingVisit(p,{article:page.identity,from}));}}
+  async function read(title:string,from:Page['identity']|null=null,language='en'){
+    const number=++op.current;setScreen('discover');setBusy('Reading '+title+' ('+language+')…');setError('');
+    try{const page=await loadArticle(title,null,language);if(number===op.current){setDiscover(page);setProgress((p:any)=>recordReadingVisit(p,{article:page.identity,from}));}}
     catch(e:any){if(number===op.current)setError(e.message||'Article unavailable');}
     finally{if(number===op.current)setBusy('');}
   }
@@ -221,13 +221,13 @@ function App(){
           <div className="mode-head"><div className="eyebrow">03 / OPEN KNOWLEDGE</div><h1>Discover<span className="accent">.</span></h1><p>Read original article content, follow links and save meaningful discoveries.</p></div>
           <div className="search-box"><label htmlFor="wiki-search">SEARCH WIKIPEDIA</label><input id="wiki-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search articles…" autoComplete="off"/>{results.length>0&&<div className="search-results">{results.map(x=><button key={x.pageId} onClick={()=>{read(x.title);setResults([]);}}>{x.title} <span>READ ↗</span></button>)}</div>}</div>
           {!discover?<><div className="section-head"><h2>Start somewhere</h2></div><div className="topics">{STARTERS.map(x=><button onClick={()=>read(x)} key={x}>{x} ↗</button>)}</div></>:
-          <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">ARTICLE</div><h2>{discover.identity.title}</h2></div><div className="actions"><button onClick={()=>toggle(discover.identity)}>{saved(discover.identity)?'✓ Saved':'＋ Save'}</button><button onClick={()=>practiceLinks(discover.identity.title)}>Practice links →</button><button onClick={()=>move('study')}>Study Desk →</button></div></div><Article page={discover} onTravel={title=>read(title,discover.identity)}/><button className="text-action" onClick={()=>setDiscover(null)}>← All topics</button></div>}
+          <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">ARTICLE</div><h2>{discover.identity.title}</h2></div><div className="actions"><button onClick={()=>toggle(discover.identity)}>{saved(discover.identity)?'✓ Saved':'＋ Save'}</button><button onClick={()=>practiceLinks(discover.identity.title)}>Practice links →</button><button onClick={()=>move('study')}>Study Desk →</button></div></div><Article page={discover} onTravel={title=>read(title,discover.identity,discover.identity.language)}/><button className="text-action" onClick={()=>setDiscover(null)}>← All topics</button></div>}
         </section>}
         {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
         {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))}/>}
         {(screen==='pulse'||screen==='capsule')&&<HistoryExplorer key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordHistoryChallenge(p,result))}/>}
         {screen==='backup'&&<BackupCenter progress={progress} onCommit={(inspection,mode)=>{const restored=commitInspectedRestore(currentProgress.current,inspection,mode,window.localStorage);setProgress(restored);}}/>}
-        {screen==='study'&&<StudyDesk progress={progress} onRead={title=>read(title)} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onNavigateMode={mode=>move(mode as Screen)} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
+        {screen==='study'&&<StudyDesk progress={progress} onRead={(title,language)=>read(title,null,language||'en')} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onNavigateMode={mode=>move(mode as Screen)} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
         {screen==='linklab'&&<LinkLab initialTopic={linkLabTopic} initialReview={linkLabReview} onComplete={entry=>setProgress((p:any)=>recordLinkLab(p,entry))}/>}
         {screen==='missions'&&<Missions progress={progress} onNavigate={mode=>move(mode as Screen)}/>}
         {screen==='arena'&&<Arena onComplete={attempt=>setProgress((p:any)=>recordArenaAttempt(p,attempt))} attempts={progress.arenaAttempts||[]} dailyManifest={progress.daily?.arena} onDailyManifest={entry=>setProgress((p:any)=>({...p,daily:{...p.daily,arena:entry}}))}/>}

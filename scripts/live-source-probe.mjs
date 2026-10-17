@@ -35,6 +35,9 @@ if(wikidata){
   }
  }
 }
+for(const [edition,title] of [['fr','Marie Curie'],['de','Marie Curie']]){
+ await get('Wikipedia '+edition+' cross-edition Q7186',params('https://'+edition+'.wikipedia.org/w/api.php',{action:'query',prop:'pageprops',ppprop:'wikibase_item',titles:title,redirects:1,format:'json',formatversion:2}),x=>x?.query?.pages?.some(p=>p.pageprops?.wikibase_item==='Q7186'));
+}
 await get('Wikimedia daily pageviews','https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia.org/all-access/user/Mathematics/daily/20261001/20261002',x=>Array.isArray(x?.items)&&x.items.length>=1&&x.items.every(y=>y.project==='en.wikipedia'&&y.granularity==='daily'&&Number.isSafeInteger(y.views)));
 console.log('LIVE API PROBE SUMMARY',JSON.stringify({pass:result.filter(x=>x==='PASS').length,not_tested:result.filter(x=>x==='NOT_TESTED').length,fail:result.filter(x=>x==='FAIL').length,transport:'Node GET only; client browser CORS remains NOT_TESTED'}));
 if(result.includes('FAIL'))process.exitCode=1;

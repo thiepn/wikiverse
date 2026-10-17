@@ -133,7 +133,22 @@ try{
    await page.getByRole('textbox',{name:'Captured phrase'}).fill('radioactivité');
    await page.getByRole('textbox',{name:'Your meaning'}).fill('radioactivity');
    await page.getByRole('button',{name:/Save to My Universe/}).click();
+   await page.locator('.learn-pane.shown .learn-article p').first().evaluate(el=>{
+     const selection=window.getSelection(),range=document.createRange();range.selectNodeContents(el);selection.removeAllRanges();selection.addRange(range);el.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));
+   });
+   await page.getByRole('button',{name:/Save selected source excerpt/}).click();
+   await page.locator('#exercise-language').selectOption('en');
+   await page.locator('.learn-question[lang="en"]').waitFor();
    await page.locator('.learn-choices button').first().click();
+   await page.locator('.learn-feedback').first().waitFor();
+   await page.locator('#exercise-language').selectOption('fr');
+   await page.locator('.learn-question[lang="fr"]').waitFor();
+   await page.locator('.learn-choices button').first().click();
+   await page.locator('.learn-feedback').first().waitFor();
+   await page.getByRole('combobox',{name:'Compare language'}).selectOption('de');
+   await page.getByRole('button',{name:/Compare articles/}).click();
+   await page.locator('.learn-pane[lang="de"]').waitFor();
+   await page.locator('.learn-source-bar').getByText(/Q10001/).waitFor();
    await page.locator('.learn-feedback').first().waitFor();
    await nav('Source Detective');
    await page.locator('.learn-citation-choices button').first().waitFor();
@@ -221,8 +236,15 @@ try{
    await page.locator('.reader-toolbar h2').getByText('Mathematics').waitFor();
    await page.locator('.article-body a[data-article-title="Physics"]').click();
    await page.locator('.reader-toolbar h2').getByText('Physics').waitFor();
+   await page.locator('.article-body p').first().evaluate(el=>{
+     const selection=window.getSelection(),range=document.createRange();range.selectNodeContents(el);selection.removeAllRanges();selection.addRange(range);el.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));
+   });
+   await page.getByRole('button',{name:/Save selected excerpt/}).click();
    await nav('Study Desk');
    await page.getByRole('heading',{name:/Study Desk/}).waitFor();
+   await page.locator('.study-topic-list button').filter({hasText:'Physics'}).click();
+   await page.locator('.study-clip-list article').first().waitFor();
+   await page.locator('.study-clip-list a').first().getAttribute('href').then(href=>assert.match(href||'',/oldid=222/));
    await page.locator('.study-topic-list button').filter({hasText:'Mathematics'}).click();
    await page.locator('.study-path .study-step').first().waitFor();
    assert.equal(await page.locator('.study-path .study-step').count(),5,'Five source-specific study steps');
@@ -253,6 +275,7 @@ try{
    const backupObject=JSON.parse(backupBytes.toString('utf8'));
    assert.equal(backupObject.kind,'wikiverse-local-backup');
    assert.equal(backupObject.progress.studyNotes.length,1,'Private study note retained in export');
+   assert.ok(backupObject.progress.sourceClips.length>=2,'English and multilingual selected source excerpts exported');
    assert.ok(backupObject.progress.linkLab.length>=1,'Original source link activity exported');
    await page.locator('#backup-file').setInputFiles({name:'wikiverse-local.json',mimeType:'application/json',buffer:backupBytes});
    await page.getByText(/Verified file format and checksum/).waitFor();
@@ -273,6 +296,9 @@ try{
    await page.locator('.study-topic-list button').filter({hasText:'Mathematics'}).click();
    await page.locator('#study-note').waitFor();
    assert.equal(await page.locator('#study-note').inputValue(),'Compare mathematics definitions and citation provenance before the next review.','Restored private research note after reload');
+   await nav('Study Desk');
+   await page.locator('.study-topic-list button').filter({hasText:'Physics'}).click();
+   await page.locator('.study-clip-list article').first().waitFor();
    await nav('My Universe');await page.getByText(/radioactivité/).waitFor();
 
    // Recovery + cross-mode learning: source-reviewed misses remain local and navigate to original graders.

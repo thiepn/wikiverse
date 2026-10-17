@@ -18,10 +18,11 @@ function SourcePane({page,selected,onSelect}:{page:Page;selected?:boolean;onSele
   <footer>Adapted from Wikipedia revision {page.identity.revisionId} · <a href={source} target="_blank" rel="noreferrer">Article and contributors</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a></footer>
  </section>;
 }
-export default function Learning({mode,onVocabulary,onResult,onReflection}:{mode:Mode;onVocabulary:(x:any)=>void;onResult:(x:LearningResult)=>void;onReflection:(x:any)=>void}){
+export default function Learning({mode,onVocabulary,onResult,onReflection,onClip}:{mode:Mode;onVocabulary:(x:any)=>void;onResult:(x:LearningResult)=>void;onReflection:(x:any)=>void;onClip:(x:any)=>void}){
  const [busy,setBusy]=useState('');const [error,setError]=useState('');
  const [topic,setTopic]=useState('Marie Curie');const [language,setLanguage]=useState('fr');
  const [pair,setPair]=useState<any>(null);const [active,setActive]=useState('fr');
+ const [exerciseLanguage,setExerciseLanguage]=useState('fr');const [selectedClip,setSelectedClip]=useState<any>(null);
  const [word,setWord]=useState('');const [meaning,setMeaning]=useState('');const [captureLanguage,setCaptureLanguage]=useState('fr');
  const [item,setItem]=useState<any>(null);const [choice,setChoice]=useState<string|null>(null);const [round,setRound]=useState(0);
  const [evidencePage,setEvidencePage]=useState<Page|null>(null);const [citations,setCitations]=useState<any[]>([]);const [question,setQuestion]=useState<any>(null);const [citationChoice,setCitationChoice]=useState<string|null>(null);const [index,setIndex]=useState(0);const [reviewId,setReviewId]=useState('');
@@ -34,7 +35,7 @@ export default function Learning({mode,onVocabulary,onResult,onReflection}:{mode
   const n=++operation.current;setBusy('Finding Wikidata-linked language editions…');setError('');
   try{const loaded=await loadLanguagePair(name,lang,origin);
    if(n!==operation.current)return;
-   setPair(loaded);setActive(lang);setCaptureLanguage(lang);setWord('');setMeaning('');setLanguage(lang);setRound(0);nextCloze(loaded,lang,0);
+   setPair(loaded);setActive(lang);setCaptureLanguage(lang);setWord('');setMeaning('');setLanguage(lang);setRound(0);setExerciseLanguage(lang);setSelectedClip(null);nextCloze(loaded,lang,0);
   }catch(e:any){if(n===operation.current)setError(e.message||'Language pair unavailable');}
   finally{if(n===operation.current)setBusy('');}
  }
@@ -50,6 +51,8 @@ export default function Learning({mode,onVocabulary,onResult,onReflection}:{mode
  function selectionOf(lang:string){
   const s=window.getSelection()?.toString().trim().replace(/\s+/g,' ')||'';
   if(s.length>=2&&s.length<=90){setWord(s);setCaptureLanguage(lang);}
+  const article=readPage(pair,lang)?.identity;
+  setSelectedClip(article&&s.length>=12&&s.length<=360?{article,excerpt:s}:null);
  }
  function saveWord(e:React.FormEvent){e.preventDefault();
   try{const article=readPage(pair,captureLanguage)?.identity;if(!article)throw new Error('Select a loaded article');
@@ -93,10 +96,11 @@ export default function Learning({mode,onVocabulary,onResult,onReflection}:{mode
        <section className="learn-panel">
         <div className="eyebrow">VOCABULARY COLLECTION</div><h2>Capture a phrase</h2><p>Select short text in either article, or type it manually. Supply your own meaning; no machine translation is invented.</p>
         <form onSubmit={saveWord}><div className="learn-row"><select aria-label="Vocabulary language" value={captureLanguage} onChange={e=>setCaptureLanguage(e.target.value)}><option value="en">EN</option><option value={language}>{language.toUpperCase()}</option></select><input aria-label="Captured phrase" value={word} onChange={e=>setWord(e.target.value)} placeholder="Selected phrase"/><input aria-label="Your meaning" value={meaning} onChange={e=>setMeaning(e.target.value)} placeholder="Your translation / meaning"/></div><button type="submit">Save to My Universe →</button></form>
+        <div className="learn-clip-action"><button disabled={!selectedClip} onClick={()=>{onClip(selectedClip);setSelectedClip(null);}}>Save selected source excerpt →</button><small>Select 12–360 characters from either article. The original language and revision stay attached to this private excerpt.</small></div>
        </section>
        <section className="learn-panel">
-        <div className="eyebrow">SOURCE-TEXT RETRIEVAL · {language.toUpperCase()}</div><h2>Complete the original sentence</h2>
-        {item?<><p className="learn-question" lang={language}>{item.prompt}</p><div className="learn-choices">{item.choices.map((v:string)=><button className={choice===v?'chosen':''} disabled={choice!==null} key={v} lang={language} onClick={()=>answerCloze(v)}>{v}</button>)}</div>{choice!==null&&<div className="learn-feedback"><strong>{gradeCloze(item,choice)?'Correct source word.':'Not the original word.'}</strong><p lang={language}>{item.sourceText}</p><a href={revisionUrl(item.article)} target="_blank" rel="noreferrer">Read source revision ↗</a><button onClick={()=>{const n=round+1;setRound(n);nextCloze(pair,language,n);}}>Another excerpt →</button></div>}</>:<p>No reliable fill-in excerpt is available in this article. You can still read and capture vocabulary.</p>}
+        <div className="eyebrow">SOURCE-TEXT RETRIEVAL · {exerciseLanguage.toUpperCase()}</div><h2>Complete the original sentence</h2><label htmlFor="exercise-language">Practice original edition</label><select id="exercise-language" aria-label="Exercise language" value={exerciseLanguage} onChange={e=>{setExerciseLanguage(e.target.value);setRound(0);nextCloze(pair,e.target.value,0);}}><option value="en">English original</option><option value={language}>{LEARNING_LANGUAGES.find(x=>x.code===language)?.name} original</option></select>
+        {item?<><p className="learn-question" lang={exerciseLanguage}>{item.prompt}</p><div className="learn-choices">{item.choices.map((v:string)=><button className={choice===v?'chosen':''} disabled={choice!==null} key={v} lang={exerciseLanguage} onClick={()=>answerCloze(v)}>{v}</button>)}</div>{choice!==null&&<div className="learn-feedback"><strong>{gradeCloze(item,choice)?'Correct source word.':'Not the original word.'}</strong><p lang={exerciseLanguage}>{item.sourceText}</p><a href={revisionUrl(item.article)} target="_blank" rel="noreferrer">Read source revision ↗</a><button onClick={()=>{const n=round+1;setRound(n);nextCloze(pair,exerciseLanguage,n);}}>Another excerpt →</button></div>}</>:<p>No reliable fill-in excerpt is available in this article. You can still read and capture vocabulary.</p>}
         <p className="learn-fine">Grades represent exact-text retrieval, not language proficiency or semantic understanding.</p>
        </section>
      </div>
