@@ -104,3 +104,24 @@ export function topicStudyJourney(progress,source){
  ];
  return {article:identity,steps,clips:clipsForArticle(progress,identity).length,done:steps.filter(x=>x.done).length,total:steps.length,authority:'source-actions-only-not-mastery',next:steps.find(x=>!x.done)||null};
 }
+
+/** User-selected small source excerpt, not an offline copy of the full upstream article or a certified fact. */
+export function sourceClip({article,excerpt,at=new Date().toISOString()}){
+ const id=checkedArticle(article),selection=String(excerpt||'').replace(/\s+/g,' ').trim();
+ if(selection.length<12||selection.length>360||!Number.isFinite(Date.parse(at)))throw new Error('Select 12–360 characters from the displayed original article');
+ const fingerprint=selection.normalize('NFC');
+ const hash=[...fingerprint].reduce((h,c)=>Math.imul(h^c.codePointAt(0),16777619)>>>0,2166136261).toString(16);
+ return {id:'clip:'+id.language+':'+id.pageId+':'+id.revisionId+':'+hash,article:id,excerpt:selection,source:sourceRevisionUrl(id),createdAt:at,kind:'user-selected-source-excerpt',graded:false};
+}
+export function saveSourceClip(progress,input){
+ const clip=sourceClip(input);
+ return {...progress,sourceClips:[clip,...(progress.sourceClips||[]).filter(x=>x.id!==clip.id)].slice(0,70)};
+}
+export function removeSourceClip(progress,id){
+ if(typeof id!=='string'||!/^clip:(en|fr|de|ko|tr):[1-9]\d*:[1-9]\d*:[0-9a-f]+$/.test(id))throw new Error('Invalid source clip identity');
+ return {...progress,sourceClips:(progress.sourceClips||[]).filter(x=>x.id!==id)};
+}
+export function clipsForArticle(progress,id){
+ const article=checkedArticle(id);
+ return (progress.sourceClips||[]).filter(x=>x.article?.language===article.language&&x.article?.pageId===article.pageId);
+}

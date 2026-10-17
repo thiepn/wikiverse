@@ -1,6 +1,6 @@
 # THIEPN WikiVerse — Product-wide completeness inventory
 
-Last source audit: October 16, 2026. Intended scope: Play, Explore, Learn, My Universe, and eventual private multiplayer. **This is a feature inventory, not a readiness percentage.** Source identities and the existing local progress engine remain authoritative for guest usage.
+Source audit updated: October 17, 2026. Intended scope: Play, Explore, Learn, My Universe, and eventual private multiplayer. **This is a feature inventory, not a readiness percentage.** Source identities and the existing local progress engine remain authoritative for guest usage.
 
 | Product capability | Audited state | Source implementation |
 | --- | --- | --- |
@@ -8,9 +8,10 @@ Last source audit: October 16, 2026. Intended scope: Play, Explore, Learn, My Un
 | Link Lab educational games | Implemented: outgoing-link and shared-link recognition using **two actual pinned source revisions**, with source-verifiable distractors | `src/domain/linklab.mjs`, `src/features/linklab.tsx` |
 | Source-pinned challenge sharing | Implemented: locally repeatable daily Trail Arena; portable `WV1` routes and `WVROOM1` invitations with expiry and explicit **NOT CONNECTED** status | `src/features/arena.tsx`, `src/domain/rooms.mjs` |
 | Knowledge Galaxy, GeoWiki and Chronicle | Implemented: factual source identifiers from Wikidata; relationships, positions, time ordering, graded statement identity | `src/features/exploration.tsx`, `src/domain/exploration.mjs` |
-| WikiPolyglot and Source Detective | Implemented: QID-linked language articles, original cloze/vocabulary, citation identity and human-ungraded evidence journal | `src/features/learning.tsx` |
+| WikiPolyglot and Source Detective | Implemented: canonical QID revalidation of both loaded editions, switchable exact-source cloze in English or the chosen supported language, bilingual original-source excerpts; additionally QID-linked language articles, original cloze/vocabulary, citation identity and human-ungraded evidence journal | `src/features/learning.tsx` |
 | WikiPulse and Time Capsule | Implemented: Wikimedia pageviews, pinned historical revision differences, bounded date scopes and pagination | `src/features/history.tsx`, `src/services/history.mjs` |
 | Discovery reading and local bookmarks | Implemented: sanitized original article reading, article hyperlinks and canonical saved pages | `src/main.tsx`, `src/components/reader.ts` |
+| Portable original-source excerpt collection | **Implemented**: manually highlighted 12–360-character passages, preserving original Wikipedia edition/page/revision and attribution links; independent of source mastery, compact user-only local storage and backed up through original v1 progress. Offline *small excerpts* only—not full offline articles | `src/domain/study.mjs`, `src/features/study.tsx`, `src/main.tsx`, `src/features/learning.tsx` |
 | Personalized study continuity | Implemented: reading events, page-source trails, editable notes, due reviews and pinned replay; now **five-step source-specific guided journey and cross-mode review queue (Polyglot, Detective, Galaxy, Pulse and Capsule)** across Discover, bookmarks, original-source Link Lab and private notes using existing evidence, not a new scoring engine | `src/domain/study.mjs`, `src/features/study.tsx` |
 | Daily missions and local achievements | Implemented: participation-only source record evaluation; no artificial mastery or competitive grade | `src/domain/missions.mjs` |
 | Data ownership and portable recovery | Implemented: private file export, SHA-256 integrity, per-mode original-source grade/rights validation, preview, merge/replace against the most recent device state, conflict precedence and atomic localStorage write; no remote upload or new store | `src/domain/backup.mjs`, `src/features/backup.tsx`, `src/services/storage.mjs` |
@@ -24,8 +25,8 @@ Last source audit: October 16, 2026. Intended scope: Play, Explore, Learn, My Un
 ## Prioritized subsequent implementation batches
 
 1. **User-owned progress backup and recovery — implemented for manual files**: automatic sync, file encryption at rest, and multi-device identity/permissions are still out of scope and unqualified.
-2. **Source resilience & authentic content breadth**: now includes rate-limit advice and stops retryable request cascades; **still needs** additional language-edition live browser acceptance, missing localized data UX, request budgets, and Wikipedia/Wikidata rights review.
-3. **Advanced source-study workflows**: five explicit source-specific actions implemented, while more diverse interactive original-source exercises, durable offline bookmarks/reading and comprehensive accessible annotations remain for later.
+2. **Source resilience & authentic content breadth**: now includes rate-limit advice and stops retryable request cascades; **now probes** French/German/Korean edition identity through Chromium and French/German through read-only Node (individual source results must be inspected); **still needs** complete all-edition live user journeys, missing localized data UX, request budgets, and Wikipedia/Wikidata rights review.
+3. **Advanced source-study workflows**: five explicit source-specific actions and user-selected source excerpts implemented, while more diverse interactive original-source exercises, durable offline bookmarks/reading and comprehensive accessible annotations remain for later.
 4. **Real multiplayer** only after an authorized, independently secured server, authentication, server-verified source manifest/attempt authority, consent and abuse controls exist. Client protocol validation alone is not an operational backend.
 5. **Release qualification near feature completeness**: keyboard and screen-reader audit, true mobile devices, Wikimedia licensing/contributor attribution, privacy/security, high-load resilience and documented production rollout.
 

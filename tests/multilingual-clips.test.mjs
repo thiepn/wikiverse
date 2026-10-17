@@ -44,8 +44,11 @@ test('Source excerpt survives original guest store and user-owned backup export/
 });
 test('Legacy v1 progress backups without the new excerpts collection still restore unchanged',async()=>{
  const previous=initialProgress();delete previous.sourceClips;
- const file=await exportProgressBackup(previous,new Date('2026-10-17T09:00:00Z'));
- const checked=await inspectProgressBackup(file);
+ // Construct an authentic previous-epoch payload and recompute its unkeyed checksum.
+ const payload={kind:'wikiverse-local-backup',format:1,exportedAt:'2026-10-17T09:00:00.000Z',progress:previous};
+ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(payload)));
+ const sha256=[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+ const checked=await inspectProgressBackup(JSON.stringify({...payload,sha256}));
  assert.deepEqual(checked.progress.sourceClips,[]);
 });
 test('Backup refuses tampered source excerpt identities and source URLs even with correctly recomputed checksum on export',async()=>{
