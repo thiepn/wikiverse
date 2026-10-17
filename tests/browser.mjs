@@ -149,6 +149,8 @@ try{
    await page.getByRole('button',{name:/Compare articles/}).click();
    await page.locator('.learn-pane[lang="de"]').waitFor();
    await page.locator('.learn-source-bar').getByText(/Q10001/).waitFor();
+   await page.locator('.learn-question[lang="de"]').waitFor();
+   await page.locator('.learn-choices button').first().click();
    await page.locator('.learn-feedback').first().waitFor();
    await nav('Source Detective');
    await page.locator('.learn-citation-choices button').first().waitFor();
