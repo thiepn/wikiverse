@@ -9,7 +9,7 @@ export default function OfflineCompare({sources,onKeepExcerpt,onOpenTopic}:{sour
  const compare=useMemo(()=>b?compareSavedRevisions(a,b,query):null,[a,b,query]),prompt=useMemo(()=>b?contrastSavedRevisions(a,b,round):null,[a,b,round]);
  if(!b)return null;
  const copies=[a,b] as const;
- function select(side:number,key:string){if(side===0){setFirst(key);if(key===b.key)setSecond(a.key);}else setSecond(key);setPositions([0,0]);setAnswer(null);setRound(0);setMessage('');}
+ function select(side:number,key:string){if(side===0){setFirst(key);if(key===b?.key)setSecond(a.key);}else setSecond(key);setPositions([0,0]);setAnswer(null);setRound(0);setMessage('');}
  function position(side:number,index:number){setPositions(old=>side===0?[index,old[1]]:[old[0],index]);}
  function clip(side:number){const selected=window.getSelection(),holder=side===0?refA.current:refB.current;
   if(!selected?.anchorNode||!selected.focusNode||!holder?.contains(selected.anchorNode)||!holder.contains(selected.focusNode)){setMessage('Select a passage inside this source first.');return;}
