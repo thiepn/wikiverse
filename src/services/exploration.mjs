@@ -1,5 +1,20 @@
-import {pageEntityId,loadEntities} from './wikimedia.mjs';
+import {pageEntityId,loadEntities,loadArticle} from './wikimedia.mjs';
+import {checkedArticle} from '../domain/study.mjs';
+import {exactSource} from '../domain/journey.mjs';
 import {RELATIONS,GEO_TOPICS,CHRONICLE_TOPICS,linkStatements,englishLabel,coordinate,chronologicalFact,chronologicalOrder} from '../domain/exploration.mjs';
+/** Wikidata is today’s associated item, not the pinned Wikipedia page ID or historical claim. */
+export async function topicWikidataEvidence(input){
+ const source=checkedArticle(input);
+ const [pinned,current]=await Promise.all([loadArticle(source.title,source.revisionId,source.language),loadArticle(source.title,null,source.language)]);
+ exactSource(pinned.identity,source);
+ if(current.identity.pageId!==source.pageId)throw new Error('Article title now points to a different Wikipedia page');
+ const qid=await pageEntityId(current.identity.title,source.language);
+ if(!qid)throw new Error('No current Wikidata sitelink for the selected article');
+ const entity=(await loadEntities([qid]))[qid];
+ if(!entity||entity.missing||entity.id!==qid)throw new Error('Linked Wikidata item unavailable');
+ return {article:source,qid,entityUrl:`https://www.wikidata.org/wiki/${qid}`,coordinate:coordinate(entity),dated:chronologicalFact(entity)};
+}
+
 async function resolveTopic(title){const id=await pageEntityId(title);return id ? {title,id} : null;}
 export async function galaxyForTitle(title){
  const resolved=await resolveTopic(title);

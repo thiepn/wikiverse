@@ -3,9 +3,12 @@ import {STARTERS,hashSeed,normalizeTitle,isArticleTitle} from '../domain/game.mj
 import {buildLinkAudit,buildCommonLinkAudit} from '../domain/linklab.mjs';
 import {checkedArticle} from '../domain/study.mjs';
 /** Bounded attempts; only real titles and original page/revision identities. */
-export async function createLinkAudit({start='Mathematics',seed='linklab_1'}={}){
+export async function createLinkAudit({start='Mathematics',seed='linklab_1',sourceArticle=null}={}){
  if(typeof seed!=='string'||seed.length<2||seed.length>80||!isArticleTitle(start)||start.trim().length>190)throw new Error('Choose a valid Wikipedia article title and seed');
- const first=await loadArticle(normalizeTitle(start));
+ const pinned=sourceArticle?checkedArticle(sourceArticle):null;
+ if(pinned&&(pinned.language!=='en'||pinned.title!==normalizeTitle(start)))throw new Error('Focused Link Lab requires the same English original title');
+ const first=await loadArticle(normalizeTitle(start),pinned?.revisionId||null);
+ if(pinned&&(first.identity.pageId!==pinned.pageId||first.identity.revisionId!==pinned.revisionId))throw new Error('Focused Link Lab source identity changed');
  const candidates=STARTERS.filter(x=>normalizeTitle(x)!==normalizeTitle(first.identity.title));
  const ordered=candidates.map((x,i)=>({title:x,order:hashSeed(seed+':'+x+':'+i)})).sort((a,b)=>a.order-b.order).slice(0,5);
  let error;
