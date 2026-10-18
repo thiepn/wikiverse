@@ -4,7 +4,7 @@ import {sourceFailureAdvice} from '../services/wikimedia.mjs';
 import {createLinkAudit,replayLinkAudit} from '../services/linklab.mjs';
 import {gradeLinkAudit,recordLinkAudit,linkAuditNextHint} from '../domain/linklab.mjs';
 import './linklab.css';
-export default function LinkLab({onComplete,initialTopic='Mathematics',initialReview=null}:{onComplete:(entry:any)=>void;initialTopic?:string;initialReview?:any}){
+export default function LinkLab({onComplete,initialTopic='Mathematics',initialReview=null,focusArticle=null}:{onComplete:(entry:any)=>void;initialTopic?:string;initialReview?:any;focusArticle?:{language:string;pageId:number;revisionId:number;title:string}|null}){
  const [starter,setStarter]=useState(initialTopic),[round,setRound]=useState(0),[challenge,setChallenge]=useState<any>(null),[selected,setSelected]=useState<string|null>(null),[busy,setBusy]=useState(''),[error,setError]=useState(''),[hint,setHint]=useState(false);
  const [exercise,setExercise]=useState<'outgoing'|'common'>('outgoing');
  const [replayed,setReplayed]=useState(false);
@@ -13,7 +13,7 @@ export default function LinkLab({onComplete,initialTopic='Mathematics',initialRe
  useEffect(()=>{setStarter(initialTopic);setChallenge(null);setSelected(null);},[initialTopic]);
  async function generate(n=round,title=starter){
   const id=++op.current;setBusy('Verifying both article revisions and their actual hyperlinks…');setError('');setSelected(null);setHint(false);
-  try{const data=await createLinkAudit({start:title,seed:'source_link_'+title+'_'+n});if(op.current===id){setChallenge(data);setRound(n);}}
+  try{const data=await createLinkAudit({start:title,seed:'source_link_'+title+'_'+n,sourceArticle:focusArticle?.title===title?focusArticle:null});if(op.current===id){setChallenge(data);setRound(n);}}
   catch(e:any){if(op.current===id){setError(e.message||'No source-backed link challenge available');setChallenge(null);}}
   finally{if(op.current===id)setBusy('');}
  }
@@ -38,6 +38,7 @@ export default function LinkLab({onComplete,initialTopic='Mathematics',initialRe
   {busy&&<div className="loading" role="status">{busy}</div>}
   {error&&<div className="error" role="alert">{error}<p>{sourceFailureAdvice(error).hint}</p><button onClick={()=>setError('')}>Dismiss</button></div>}
   {initialReview&&<div className="linklab-panel"><div className="eyebrow">STUDY DESK / ORIGINAL REVISION REVIEW</div><p>Re-open the previously missed source pair at its pinned revisions. New practice questions are generated only after verifying the archived identities; this does not overwrite the previous grade.</p><button disabled={!!busy} onClick={()=>void replayReview()}>Revisit original pinned link evidence →</button></div>}
+  {focusArticle&&<div className="linklab-panel"><div className="eyebrow">CONNECTED TOPIC</div><p>{focusArticle.title} · pinned English revision {focusArticle.revisionId}. Original questions reload this exact revision when the title is unchanged.</p></div>}
   <div className="linklab-panel"><label htmlFor="linklab-start">STARTING ARTICLE</label><div className="linklab-tools"><input id="linklab-start" list="linklab-source-starters" maxLength={190} value={starter} onChange={e=>{setStarter(e.target.value);setChallenge(null);}} placeholder="Wikipedia article title"/><datalist id="linklab-source-starters">{STARTERS.map(x=><option key={x} value={x}/>)}</datalist><button className="primary" onClick={()=>void generate(0,starter)} disabled={!!busy}>Generate sourced question →</button></div></div>
   {challenge&&<div className="linklab-modes" role="group" aria-label="Question style"><button aria-pressed={exercise==='outgoing'} onClick={()=>{setExercise('outgoing');setSelected(null);setHint(false);}}>Which link belongs?</button><button aria-pressed={exercise==='common'} disabled={!challenge.common} onClick={()=>{setExercise('common');setSelected(null);setHint(false);}}>What do both link to?</button>{!challenge.common&&<span>No source-backed common-link question for this pair.</span>}</div>}
   {q&&<><div className="linklab-sources"><div><span className="eyebrow">QUESTION ARTICLE · PAGE {q.primary.pageId}</span><h2>{q.primary.title}</h2><a target="_blank" rel="noreferrer" href={revisionUrl(q.primary)}>Read exact source revision {q.primary.revisionId} ↗</a></div><div><span className="eyebrow">DISTRACTOR ARTICLE · PAGE {q.contrast.pageId}</span><h2>{q.contrast.title}</h2><a target="_blank" rel="noreferrer" href={revisionUrl(q.contrast)}>Inspect alternate revision {q.contrast.revisionId} ↗</a></div></div>

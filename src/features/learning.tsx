@@ -6,6 +6,7 @@ import {revisionUrl} from '../domain/game.mjs';
 import {makeReaderHtml} from '../components/reader';
 import './learning.css';
 type Mode='polyglot'|'detective';
+type Article={language:string;pageId:number;revisionId:number;title:string};
 type Page={html:string;identity:{language:string;pageId:number;revisionId:number;title:string};links:string[]};
 type LearningResult={mode:Mode;kind:string;id:string;correct:boolean;score:number;source:string;at:string};
 function SourcePane({page,selected,onSelect}:{page:Page;selected?:boolean;onSelect:()=>void}){
@@ -18,7 +19,7 @@ function SourcePane({page,selected,onSelect}:{page:Page;selected?:boolean;onSele
   <footer>Adapted from Wikipedia revision {page.identity.revisionId} · <a href={source} target="_blank" rel="noreferrer">Article and contributors</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a></footer>
  </section>;
 }
-export default function Learning({mode,onVocabulary,onResult,onReflection,onClip,onOffline}:{mode:Mode;onVocabulary:(x:any)=>void;onResult:(x:LearningResult)=>void;onReflection:(x:any)=>void;onClip:(x:any)=>void;onOffline:(page:Page)=>void}){
+export default function Learning({mode,focusArticle,onSelectSource,onVocabulary,onResult,onReflection,onClip,onOffline}:{mode:Mode;focusArticle?:Article|null;onSelectSource?:(article:Article)=>void;onVocabulary:(x:any)=>void;onResult:(x:LearningResult)=>void;onReflection:(x:any)=>void;onClip:(x:any)=>void;onOffline:(page:Page)=>void}){
  const [busy,setBusy]=useState('');const [error,setError]=useState('');
  const [topic,setTopic]=useState('Marie Curie');const [language,setLanguage]=useState('fr');
  const [pair,setPair]=useState<any>(null);const [active,setActive]=useState('fr');
@@ -35,20 +36,22 @@ export default function Learning({mode,onVocabulary,onResult,onReflection,onClip
  async function fetchPair(name:string,lang:string,origin='en'){
   const n=++operation.current;setBusy('Finding Wikidata-linked language editions…');setError('');
   try{const loaded=await loadLanguagePair(name,lang,origin);
+   if(focusArticle&&name===focusArticle.title){const linked=loaded.articles?.[focusArticle.language];if(!linked||linked.identity.pageId!==focusArticle.pageId)throw new Error('Loaded language edition does not match selected original Wikipedia page');}
    if(n!==operation.current)return;
    setPair(loaded);setActive(lang);setCaptureLanguage(lang);setWord('');setMeaning('');setLanguage(lang);setRound(0);setExerciseLanguage(lang);setSelectedClip(null);nextCloze(loaded,lang,0);
   }catch(e:any){if(n===operation.current)setError(e.message||'Language pair unavailable');}
   finally{if(n===operation.current)setBusy('');}
  }
- async function fetchEvidence(name:string){
+ async function fetchEvidence(name:string,source?:Article|null){
   const n=++operation.current;setBusy('Retrieving Wikipedia article and citations…');setError('');setEvidencePage(null);
-  try{const page=await loadArticle(name);
+  try{const page=await loadArticle(name,source?.revisionId||null,'en');
+   if(source&&(page.identity.pageId!==source.pageId||page.identity.revisionId!==source.revisionId))throw new Error('Pinned citation source identity changed');
    if(n!==operation.current)return;
    const citations=sourceCitations(page);setEvidencePage(page);setCitations(citations);setIndex(0);setQuestion(sourceQuestion(page,0));setCitationChoice(null);setReviewId(citations[0]?.id||'');setReviewSaved(false);
   }catch(e:any){if(n===operation.current)setError(e.message||'Article citations unavailable');}
   finally{if(n===operation.current)setBusy('');}
  }
- useEffect(()=>{if(mode==='polyglot')void fetchPair('Marie Curie','fr');else void fetchEvidence('Marie Curie');return()=>{operation.current++;};},[mode]);
+ useEffect(()=>{const title=focusArticle?.title||'Marie Curie';setTopic(title);if(mode==='polyglot'){const lang=focusArticle?.language!=='en'&&focusArticle?.language?focusArticle.language:'fr';void fetchPair(title,lang,focusArticle?.language||'en');}else void fetchEvidence(title,focusArticle);return()=>{operation.current++;};},[mode,focusArticle?.pageId,focusArticle?.revisionId,focusArticle?.language]);
  function selectionOf(lang:string){
   const s=window.getSelection()?.toString().trim().replace(/\s+/g,' ')||'';
   if(s.length>=2&&s.length<=90){setWord(s);setCaptureLanguage(lang);}
@@ -89,7 +92,7 @@ export default function Learning({mode,onVocabulary,onResult,onReflection,onClip
      <button className="primary" disabled={!!busy} type="submit">{mode==='polyglot'?'Compare articles →':'Investigate references →'}</button></div>
    </form>
    {mode==='polyglot'&&pair&&<>
-     <div className="learn-source-bar"><span><b>{pair.qid}</b> · Wikidata-linked topic</span><a href={pair.sourceUrl} target="_blank" rel="noreferrer">Inspect article pairing ↗</a></div>
+     <div className="learn-source-bar"><span><b>{pair.qid}</b> · Independently verified Wikidata-linked topic</span><a href={pair.sourceUrl} target="_blank" rel="noreferrer">Inspect article pairing ↗</a>{onSelectSource&&<button onClick={()=>onSelectSource(pair.articles[active].identity)}>Use this {active.toUpperCase()} source across WikiVerse →</button>}</div>
      <p className="learn-honesty">These are independent articles about the same Wikidata entity, not sentence-aligned translations.</p>
      <div className="learn-mobile-tabs"><button className={active==='en'?'active':''} onClick={()=>setActive('en')}>EN · {pair.articles.en.identity.title}</button><button className={active===pairedLanguage?'active':''} onClick={()=>setActive(pairedLanguage)}>{pairedLanguage.toUpperCase()} · {pair.articles[pairedLanguage].identity.title}</button></div>
      <div className="learn-panes"><SourcePane page={pair.articles.en} selected={active==='en'} onSelect={()=>selectionOf('en')}/><SourcePane page={pair.articles[pairedLanguage]} selected={active===pairedLanguage} onSelect={()=>selectionOf(pairedLanguage)}/></div>
@@ -107,7 +110,7 @@ export default function Learning({mode,onVocabulary,onResult,onReflection,onClip
      </div>
    </>}
    {mode==='detective'&&evidencePage&&<>
-    <div className="learn-source-bar"><span><b>{evidencePage.identity.title}</b> · Revision {evidencePage.identity.revisionId}</span><a href={revisionUrl(evidencePage.identity)} target="_blank" rel="noreferrer">Open original article and references ↗</a></div>
+    <div className="learn-source-bar"><span><b>{evidencePage.identity.title}</b> · Revision {evidencePage.identity.revisionId}</span><a href={revisionUrl(evidencePage.identity)} target="_blank" rel="noreferrer">Open original article and references ↗</a>{onSelectSource&&<button onClick={()=>onSelectSource(evidencePage.identity)}>Use original source across WikiVerse →</button>}</div>
     <div className="learn-exercises">
      <section className="learn-panel">
       <div className="eyebrow">CHECKABLE EXERCISE / BIBLIOGRAPHIC LINKAGE</div><h2>Which citation is attached to this passage?</h2>

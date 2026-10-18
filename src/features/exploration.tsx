@@ -1,17 +1,19 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {galaxyForTitle,galaxyForQid,loadGeoCatalog,loadChronicle} from '../services/exploration.mjs';
+import {galaxyForTitle,galaxyForQid,loadGeoCatalog,loadChronicle,topicWikidataEvidence} from '../services/exploration.mjs';
 import {searchArticles} from '../services/wikimedia.mjs';
 import {mapPoint,chronologicalOrder,shuffleDeterministic,isCorrectOrder,changeOrder} from '../domain/exploration.mjs';
 import {sourceRelationQuestion,gradeRelationQuestion,knowledgeResult} from '../domain/knowledge.mjs';
 import './exploration.css';
 type Mode='galaxy'|'geo'|'chronicle';
+type Article={language:string;pageId:number;revisionId:number;title:string};
 type Edge={to:string;title:string;property:string;label:string;sourceUrl:string};
 type Galaxy={root:{id:string;title:string;description:string;sourceUrl:string};edges:Edge[];groups:{property:string;label:string;count:number}[]};
 type Place={qid:string;title:string;articleTitle:string;latitude:number;longitude:number;sourceUrl:string};
 type Fact={qid:string;title:string;articleTitle:string;year:number;type:string;sourceUrl:string;property:string};
 type Result={mode:Mode;title:string;score:number;at:string;source:string};
-export default function Exploration({mode,onRead,onComplete,onKnowledge}:{mode:Mode;onRead:(title:string)=>void;onComplete:(result:Result)=>void;onKnowledge:(result:any)=>void}){
+export default function Exploration({mode,focusArticle,onRead,onComplete,onKnowledge}:{mode:Mode;focusArticle?:Article|null;onRead:(title:string)=>void;onComplete:(result:Result)=>void;onKnowledge:(result:any)=>void}){
  const [busy,setBusy]=useState('');const [error,setError]=useState('');
+ const [focusEvidence,setFocusEvidence]=useState<any>(null);const [focusError,setFocusError]=useState('');
  const [galaxy,setGalaxy]=useState<Galaxy|null>(null);const [trail,setTrail]=useState<string[]>([]);const [topic,setTopic]=useState('Marie Curie');const [matches,setMatches]=useState<{title:string;pageId:number}[]>([]);const [filter,setFilter]=useState('all');
  const [places,setPlaces]=useState<Place[]>([]);const [place,setPlace]=useState<Place|null>(null);const [geoQuiz,setGeoQuiz]=useState(false);const [round,setRound]=useState(0);const [geoAnswer,setGeoAnswer]=useState<boolean|null>(null);
  const [facts,setFacts]=useState<Fact[]>([]);const [ordered,setOrdered]=useState<Fact[]>([]);const [chronoQuiz,setChronoQuiz]=useState(false);const [chronoAnswer,setChronoAnswer]=useState<boolean|null>(null);
@@ -22,12 +24,19 @@ export default function Exploration({mode,onRead,onComplete,onKnowledge}:{mode:M
  useEffect(()=>{
    let active=true;setError('');
    async function load(){setBusy('Retrieving source-backed knowledge…');try{
-     if(mode==='galaxy'){const g=await galaxyForTitle('Marie Curie');if(active)setGalaxy(g);}
+     if(mode==='galaxy'&&!focusArticle){const g=await galaxyForTitle('Marie Curie');if(active)setGalaxy(g);}
      if(mode==='geo'){const g=await loadGeoCatalog();if(active){setPlaces(g);setPlace(g[0]);}}
      if(mode==='chronicle'){const c=await loadChronicle();if(active){setFacts(c);setOrdered(shuffleDeterministic(c.slice(0,5),String(Date.now())));}}
    }catch(e:any){if(active)setError(e.message||'Source unavailable');}finally{if(active)setBusy('');}}
    void load();return()=>{active=false;};
- },[mode]);
+ },[mode,focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);
+ useEffect(()=>{let active=true;setFocusEvidence(null);setFocusError('');if(!focusArticle)return;
+   async function inspect(){try{
+     const evidence=await topicWikidataEvidence(focusArticle);if(!active)return;setFocusEvidence(evidence);
+     if(mode==='galaxy'){const graph=await galaxyForQid(evidence.qid);if(active){setGalaxy(graph);setTopic(focusArticle.title);setFilter('all');setTrail([]);setRelationRound(0);setRelationChoice(null);}}
+   }catch(e:any){if(active)setFocusError(e.message||'No evidence for this source');}}
+   void inspect();return()=>{active=false;};
+ },[mode,focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);
  useEffect(()=>{if(mode!=='galaxy'||topic.trim().length<3){setMatches([]);return;}let active=true;const timer=setTimeout(()=>searchArticles(topic).then(x=>{if(active)setMatches(x.slice(0,6));}).catch(()=>{if(active)setMatches([]);}),350);return()=>{active=false;clearTimeout(timer);};},[mode,topic]);
  async function loadGalaxy(titleOrId:string,byId=false){if(busy)return;setBusy('Expanding verified relationships…');setError('');try{const x=byId?await galaxyForQid(titleOrId):await galaxyForTitle(titleOrId);if(byId&&galaxy)setTrail(t=>[...t,galaxy.root.id]);if(!byId)setTrail([]);setGalaxy(x);setFilter('all');setMatches([]);setRelationRound(0);setRelationChoice(null);}catch(e:any){setError(e.message);}finally{setBusy('');}}
  async function back(){if(!trail.length||busy)return;setBusy('Returning to previous entity…');try{const g=await galaxyForQid(trail[trail.length-1]);setGalaxy(g);setTrail(t=>t.slice(0,-1));setFilter('all');setRelationRound(0);setRelationChoice(null);}catch(e:any){setError(e.message);}finally{setBusy('');}}
@@ -36,6 +45,14 @@ export default function Exploration({mode,onRead,onComplete,onKnowledge}:{mode:M
  function chronoCheck(){const correct=isCorrectOrder(ordered);setChronoAnswer(correct);if(correct)onComplete({mode:'chronicle',title:'Ordered '+ordered.length+' historical records',score:ordered.length*20,at:new Date().toISOString(),source:'https://www.wikidata.org/'});}
  return <section className="exp">
    <div className="mode-head"><div className="eyebrow">{mode==='galaxy'?'05 / WIKIDATA NETWORK':mode==='geo'?'06 / GEOGRAPHICAL DISCOVERY':'07 / CHRONOLOGY & EVIDENCE'}</div><h1>{mode==='galaxy'?'Knowledge Galaxy':mode==='geo'?'GeoWiki':'WikiChronicle'}<span className="accent">.</span></h1><p>{mode==='galaxy'?'Expand genuine Wikidata statements and follow inspectable entity relationships.':mode==='geo'?'Find real coordinates and solve a global location challenge.':'Browse source-verified historical dates and solve chronological ordering puzzles.'}</p></div>
+   {focusArticle&&<aside className="exp-source-focus" aria-label="Original topic evidence">
+    <div className="eyebrow">CONNECTED TOPIC · PINNED WIKIPEDIA SOURCE</div><h2>{focusArticle.title}</h2>
+    <p>{focusArticle.language.toUpperCase()} page {focusArticle.pageId} · revision {focusArticle.revisionId}. Current Wikidata statements are independently resolved; they are not assumed to appear in the historical revision.</p>
+    {focusEvidence?<div className="exp-source-evidence"><a href={focusEvidence.entityUrl} target="_blank" rel="noreferrer">Verified current Wikidata item {focusEvidence.qid} ↗</a>
+      {mode==='geo'&&(focusEvidence.coordinate?<p>Recorded P625 coordinate: {focusEvidence.coordinate.latitude.toFixed(4)}°, {focusEvidence.coordinate.longitude.toFixed(4)}°. <a href={focusEvidence.coordinate.sourceUrl} target="_blank" rel="noreferrer">Inspect P625 ↗</a></p>:<p>No qualifying P625 coordinate for this topic. The independent atlas below is not inferred to describe it.</p>)}
+      {mode==='chronicle'&&(focusEvidence.dated?<p>Recorded {focusEvidence.dated.type.toLowerCase()} year: {focusEvidence.dated.year}. <a href={focusEvidence.dated.sourceUrl} target="_blank" rel="noreferrer">Inspect {focusEvidence.dated.property} ↗</a></p>:<p>No qualifying date for this topic. The independent timeline below is not a history of the selected article.</p>)}
+    </div>:<p role="status">{focusError||'Checking original Wikipedia identity and current Wikidata claims…'}</p>}
+   </aside>}
    {error&&<div role="alert" className="error">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
    {busy&&<div role="status" className="loading">{busy}</div>}
    {mode==='galaxy'&&<><div className="exp-find">
