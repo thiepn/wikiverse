@@ -5,6 +5,8 @@ import {STARTERS,MYSTERY_PEOPLE,choose,dateKey,hashSeed,applyRaceClick,acceptedE
 import {loadArticle,loadMystery,searchArticles,apiStats} from './services/wikimedia.mjs';
 import {readProgress,saveProgress,recordRace,recordMystery,recordExploration,recordLearning,saveVocabulary,recordEvidenceReview,recordHistoryChallenge,recordArenaAttempt,recordKnowledgeAttempt,recordLinkLab,toggleSaved,initialProgress} from './services/storage.mjs';
 import './style.css';
+import Portal from './features/portal';
+import {navigationSections,sectionForScreen,resumeSource} from './domain/portal.mjs';
 import Exploration from './features/exploration';
 import Learning from './features/learning';
 import HistoryExplorer from './features/history';
@@ -19,11 +21,13 @@ import {dailyMissionBoard} from './domain/missions.mjs';
 import {captureOfflineReading} from './services/offline.mjs';
 import {saveOfflineSnapshot,removeOfflineSnapshot} from './domain/offline.mjs';
 
-type Screen = 'backup'|'study'|'linklab'|'missions'|'home'|'race'|'mystery'|'discover'|'library'|'galaxy'|'geo'|'chronicle'|'polyglot'|'detective'|'pulse'|'capsule'|'arena';
+type Screen = 'play'|'learn'|'backup'|'study'|'linklab'|'missions'|'home'|'race'|'mystery'|'discover'|'library'|'galaxy'|'geo'|'chronicle'|'polyglot'|'detective'|'pulse'|'capsule'|'arena';
 type Page = {identity:{language:string;pageId:number;revisionId:number;title:string};html:string;links:string[];retrievedAt:string};
 const TODAY = dateKey();
 const pages: {id:Screen;name:string;symbol:string}[] = [
-  {id:'home',name:'Overview',symbol:'◫'},
+  {id:'home',name:'Explore',symbol:'◫'},
+  {id:'play',name:'Play',symbol:'◆'},
+  {id:'learn',name:'Learn',symbol:'▣'},
   {id:'missions',name:'Daily Missions',symbol:'◆'},
   {id:'study',name:'Study Desk',symbol:'▣'},
   {id:'backup',name:'Backup & Recovery',symbol:'↧'},
@@ -90,6 +94,7 @@ function App(){
   const [query,setQuery]=useState('');
   const [results,setResults]=useState<any[]>([]);
   const [mobileNav,setMobileNav]=useState(false);
+  const [studyFocus,setStudyFocus]=useState<Page['identity']|null>(null);
   const op=useRef(0);
   const qOp=useRef(0);
   useEffect(()=>{currentProgress.current=progress;try{saveProgress(progress);}catch{setError('Local storage is unavailable or full. Progress may not persist.');}},[progress]);
@@ -169,9 +174,9 @@ function App(){
     if(correct)finishMystery(next);else setMystery(next);
   }
   function practiceLinks(title:string,review:any=null){setLinkLabTopic(title);setLinkLabReview(review);move('linklab');}
-  async function read(title:string,from:Page['identity']|null=null,language='en'){
+  async function read(title:string,from:Page['identity']|null=null,language='en',revisionId:number|null=null){
     const number=++op.current;setScreen('discover');setBusy('Reading '+title+' ('+language+')…');setError('');
-    try{const page=await loadArticle(title,null,language);if(number===op.current){setDiscover(page);setProgress((p:any)=>recordReadingVisit(p,{article:page.identity,from}));}}
+    try{const page=await loadArticle(title,revisionId,language);if(number===op.current){setDiscover(page);setProgress((p:any)=>recordReadingVisit(p,{article:page.identity,from}));}}
     catch(e:any){if(number===op.current)setError(e.message||'Article unavailable');}
     finally{if(number===op.current)setBusy('');}
   }
@@ -185,41 +190,17 @@ function App(){
     <aside className={'sidebar '+(mobileNav?'show':'')}>
       <button className="brand" onClick={()=>move('home')}><b>W</b><span>WIKIVERSE<small>KNOWLEDGE / REIMAGINED</small></span></button>
       <span className="eyebrow">EXPLORE THE UNIVERSE</span>
-      <nav aria-label="Main navigation">{pages.map(p=><button key={p.id} aria-current={screen===p.id?'page':undefined} className={screen===p.id?'active':''} onClick={()=>move(p.id)}><span>{p.symbol}</span>{p.name}<span className="nav-tail">›</span></button>)}</nav>
+      <nav aria-label="Main navigation">{navigationSections.map(group=><section key={group.id} className="nav-group"><button className={'nav-primary '+(sectionForScreen(screen)===group.id?'active':'')} aria-current={screen===group.id?'page':undefined} onClick={()=>move(group.id as Screen)}><strong>{group.title}</strong><small>{group.description}</small></button>{group.children.length>0&&<div className="nav-children">{group.children.map(id=>{const item=pages.find(p=>p.id===id)!;return <button key={id} aria-current={screen===id?'page':undefined} className={screen===id?'active':''} onClick={()=>move(id as Screen)}><span>{item.symbol}</span>{item.name}<span className="nav-tail">›</span></button>;})}</div>}</section>)}</nav>
       <div className="sidebar-bottom"><div className="flex between"><span className="eyebrow">DAILY EXPLORATION</span><strong>{Number(raceDone)+Number(mysteryDone)}/2</strong></div><div className="progress"><i style={{width:String((Number(raceDone)+Number(mysteryDone))*50)+'%'}}/></div><small>{TODAY} · UTC</small><p>Independent THIEPN project. Not affiliated with Wikimedia.</p></div>
     </aside>
     <div className="workspace">
       <header><div className="flex"><button className="menu" aria-label="Toggle navigation" aria-expanded={mobileNav} onClick={()=>setMobileNav(!mobileNav)}>☰</button><span className="eyebrow">WIKIVERSE / {pages.find(p=>p.id===screen)?.name.toUpperCase()}</span></div><div className="eyebrow">● WIKIMEDIA DATA <span className="top-saved">· {stats.discoveries} SAVED</span></div></header>
+      <div className="universe-primary-tabs" role="group" aria-label="WikiVerse sections">{navigationSections.map(group=><button key={group.id} className={sectionForScreen(screen)===group.id?'active':''} aria-pressed={sectionForScreen(screen)===group.id} onClick={()=>move(group.id as Screen)}>{group.title}</button>)}</div>
       <main>
         {error&&<div className="error" role="alert">{error} <button onClick={()=>setError('')}>Dismiss</button></div>}
         {notice&&<p role="status" className="study-confirm">{notice} <button onClick={()=>setNotice('')}>Dismiss</button></p>}
         {busy&&<div className="loading" role="status">{busy}</div>}
-        {screen==='home'&&<>
-          <section className="hero"><div className="eyebrow">01 / THE KNOWLEDGE UNIVERSE</div><h1>Everything is<br/><em>connected.</em></h1><p>Navigate real Wikipedia articles, solve Wikidata mysteries and build your personal map of discoveries.</p><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>startRace(true)}>Start today's race ↗</button><button disabled={Boolean(busy)} onClick={()=>startMystery(true)}>Today's mystery →</button></div></section>
-          <div className="section-head"><h2>Daily knowledge route</h2><span className="eyebrow">{dailyMissionBoard(progress).date} UTC</span></div>
-          <div className="panel"><h3>{dailyMissionBoard(progress).completed} / {dailyMissionBoard(progress).total} source missions completed today</h3><p>Daily missions are derived from your existing WikiVerse activities, with private progress and participation-only milestones.</p><button onClick={()=>move('missions')}>Open daily mission board →</button></div>
-          <div className="section-head"><h2>Continue your research</h2><span className="eyebrow">READ / REVIEW / REVISIT</span></div><div className="cards"><button onClick={()=>move('study')}><span className="glyph">▣</span><span className="eyebrow">KNOWLEDGE CONTINUITY</span><h3>Study Desk</h3><p>{journeyStats(progress).uniqueRead} source topics read · {journeyStats(progress).reviewDue} reviews due. Open notes, reading paths, and missed source questions.</p><b>RESUME STUDY →</b></button></div>
-          <div className="section-head"><h2>Source recognition training</h2><span className="eyebrow">NEW GAME / ORIGINAL REVISIONS</span></div>
-          <div className="cards"><button onClick={()=>move('linklab')}><span className="glyph">⊙</span><span className="eyebrow">SOURCE LINK AUDIT</span><h3>Link Lab</h3><p>Identify an actual outgoing link from a pinned Wikipedia revision, using contrasting source links rather than fabricated decoys.</p><b>PLAY SOURCE AUDIT →</b></button></div>
-          <div className="section-head"><h2>Choose an experience</h2><span className="eyebrow">THREE WAYS TO BEGIN</span></div><div className="cards">
-            <button onClick={()=>move('race')}><span className="glyph">↗</span><span className="eyebrow">MODE 01</span><h3>WikiRace</h3><p>Travel from article to article using genuine source hyperlinks.</p><b>ENTER RACE →</b></button>
-            <button onClick={()=>move('mystery')}><span className="glyph">?</span><span className="eyebrow">MODE 02</span><h3>WikiMystery</h3><p>Deduce a person from clues backed by Wikidata properties.</p><b>SOLVE MYSTERY →</b></button>
-            <button onClick={()=>move('discover')}><span className="glyph">◎</span><span className="eyebrow">OPEN KNOWLEDGE</span><h3>Discover</h3><p>Search, read and save millions of connected topics.</p><b>START EXPLORING →</b></button>
-          </div><div className="section-head"><h2>Discover more dimensions</h2><span className="eyebrow">EXPLORE / LEARN</span></div><div className="cards">
-            <button onClick={()=>move('galaxy')}><span className="glyph">✧</span><span className="eyebrow">KNOWLEDGE NETWORK</span><h3>Knowledge Galaxy</h3><p>Expand real Wikidata relationships between topics.</p><b>EXPLORE CONNECTIONS →</b></button>
-            <button onClick={()=>move('geo')}><span className="glyph">⌖</span><span className="eyebrow">COORDINATES & DISCOVERY</span><h3>GeoWiki</h3><p>Explore source coordinates and locate cities by their pins.</p><b>OPEN THE ATLAS →</b></button>
-            <button onClick={()=>move('chronicle')}><span className="glyph">◷</span><span className="eyebrow">HISTORY & EVIDENCE</span><h3>WikiChronicle</h3><p>Investigate dated events and order source-backed timelines.</p><b>EXPLORE HISTORY →</b></button>
-          </div><div className="section-head"><h2>Daily challenge lab</h2><span className="eyebrow">SHARE / REPLAY / LEARN</span></div>
-          <div className="cards"><button onClick={()=>move('arena')}><span className="glyph">◇</span><span className="eyebrow">PINNED ARTICLES</span><h3>Trail Arena</h3><p>Build a proven source route, practice outgoing links and share an unranked verified code with friends.</p><b>OPEN CHALLENGE LAB →</b></button></div>
-          <div className="section-head"><h2>Analyze attention and change</h2><span className="eyebrow">WIKIMEDIA DATA / HISTORY</span></div><div className="cards">
-            <button onClick={()=>move('pulse')}><span className="glyph">⌁</span><span className="eyebrow">PAGEVIEW INTELLIGENCE</span><h3>WikiPulse</h3><p>Compare real daily article views and solve a numerical challenge.</p><b>EXPLORE DAILY VIEWS →</b></button>
-            <button onClick={()=>move('capsule')}><span className="glyph">◴</span><span className="eyebrow">REVISION TIME MACHINE</span><h3>Time Capsule</h3><p>Compare pinned historical article revisions and find actual textual changes.</p><b>EXPLORE ARTICLE HISTORY →</b></button>
-          </div>
-          <div className="section-head"><h2>Read and investigate</h2><span className="eyebrow">LANGUAGES / EVIDENCE</span></div><div className="cards">
-            <button onClick={()=>move('polyglot')}><span className="glyph">文</span><span className="eyebrow">MULTILINGUAL READING</span><h3>WikiPolyglot</h3><p>Compare verified language editions, collect phrases and solve source-text exercises.</p><b>READ ACROSS LANGUAGES →</b></button>
-            <button onClick={()=>move('detective')}><span className="glyph">§</span><span className="eyebrow">SOURCE LITERACY</span><h3>Source Detective</h3><p>Trace citation provenance, verify bibliography links and write personal evidence reviews.</p><b>INVESTIGATE REFERENCES →</b></button>
-          </div><div className="stats"><div><span>COMPLETED RACES</span><strong>{stats.races}</strong></div><div><span>MYSTERIES ATTEMPTED</span><strong>{stats.mysteries}</strong></div><div><span>SAVED TOPICS</span><strong>{stats.discoveries}</strong></div></div>
-        </>}
+        {(screen==='home'||screen==='play'||screen==='learn')&&<Portal section={screen} progress={progress} onNavigate={mode=>move(mode as Screen)} onReadSource={article=>read(article.title,null,article.language,article.revisionId)} onReadStarter={title=>read(title)} onDailyRace={()=>startRace(true)} onDailyMystery={()=>startMystery(true)}/>}
         {screen==='race'&&<section>
           <div className="mode-head"><div className="eyebrow">01 / REAL ARTICLE NAVIGATION</div><h1>WikiRace<span className="accent">.</span></h1><p>Reach the destination using only actual links in the displayed article.</p></div>
           {!race?<div className="panel"><h2>Generate a race</h2><p>The game checks a complete two-hop path before the challenge begins. Challenges are unranked.</p><label htmlFor="start">Starting article</label><select id="start" value={starter} onChange={e=>setStarter(e.target.value)}>{STARTERS.map(x=><option key={x}>{x}</option>)}</select><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>startRace(false)}>Generate verified route ↗</button><button disabled={Boolean(busy)} onClick={()=>startRace(true)}>Daily race · {TODAY}</button></div></div>:
@@ -241,13 +222,13 @@ function App(){
           <div className="mode-head"><div className="eyebrow">03 / OPEN KNOWLEDGE</div><h1>Discover<span className="accent">.</span></h1><p>Read original article content, follow links and save meaningful discoveries.</p></div>
           <div className="search-box"><label htmlFor="wiki-search">SEARCH WIKIPEDIA</label><input id="wiki-search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search articles…" autoComplete="off"/>{results.length>0&&<div className="search-results">{results.map(x=><button key={x.pageId} onClick={()=>{read(x.title);setResults([]);}}>{x.title} <span>READ ↗</span></button>)}</div>}</div>
           {!discover?<><div className="section-head"><h2>Start somewhere</h2></div><div className="topics">{STARTERS.map(x=><button onClick={()=>read(x)} key={x}>{x} ↗</button>)}</div></>:
-          <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">ARTICLE</div><h2>{discover.identity.title}</h2></div><div className="actions"><button onClick={()=>toggle(discover.identity)}>{saved(discover.identity)?'✓ Saved':'＋ Save'}</button><button onClick={()=>practiceLinks(discover.identity.title)}>Practice links →</button><button onClick={()=>move('study')}>Study Desk →</button></div></div><Article page={discover} onTravel={title=>read(title,discover.identity,discover.identity.language)} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))} onOffline={saveOffline}/><button className="text-action" onClick={()=>setDiscover(null)}>← All topics</button></div>}
+          <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">ARTICLE</div><h2>{discover.identity.title}</h2></div><div className="actions"><button onClick={()=>toggle(discover.identity)}>{saved(discover.identity)?'✓ Saved':'＋ Save'}</button>{discover.identity.language==='en'&&<button onClick={()=>practiceLinks(discover.identity.title)}>Practice source links →</button>}<button onClick={()=>{setStudyFocus(discover.identity);move('study');}}>Study this article →</button></div></div><Article page={discover} onTravel={title=>read(title,discover.identity,discover.identity.language)} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))} onOffline={saveOffline}/><button className="text-action" onClick={()=>setDiscover(null)}>← All topics</button></div>}
         </section>}
         {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
         {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))} onClip={(entry:any)=>setProgress((p:any)=>saveSourceClip(p,entry))} onOffline={(page:any)=>saveOffline(page,makeReaderHtml(page).html)}/>}
         {(screen==='pulse'||screen==='capsule')&&<HistoryExplorer key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordHistoryChallenge(p,result))}/>}
         {screen==='backup'&&<BackupCenter progress={progress} onCommit={(inspection,mode)=>{const restored=commitInspectedRestore(currentProgress.current,inspection,mode,window.localStorage);setProgress(restored);}}/>}
-        {screen==='study'&&<StudyDesk progress={progress} onRead={(title,language)=>read(title,null,language||'en')} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onRemoveClip={id=>setProgress((p:any)=>removeSourceClip(p,id))} onSaveClip={input=>setProgress((p:any)=>saveSourceClip(p,input))} onRemoveOffline={key=>setProgress((p:any)=>removeOfflineSnapshot(p,key))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onNavigateMode={mode=>move(mode as Screen)} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
+        {screen==='study'&&<StudyDesk progress={progress} focusArticle={studyFocus} onRead={(title,language)=>read(title,null,language||'en')} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onRemoveClip={id=>setProgress((p:any)=>removeSourceClip(p,id))} onSaveClip={input=>setProgress((p:any)=>saveSourceClip(p,input))} onRemoveOffline={key=>setProgress((p:any)=>removeOfflineSnapshot(p,key))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onNavigateMode={mode=>move(mode as Screen)} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
         {screen==='linklab'&&<LinkLab initialTopic={linkLabTopic} initialReview={linkLabReview} onComplete={entry=>setProgress((p:any)=>recordLinkLab(p,entry))}/>}
         {screen==='missions'&&<Missions progress={progress} onNavigate={mode=>move(mode as Screen)}/>}
         {screen==='arena'&&<Arena onComplete={attempt=>setProgress((p:any)=>recordArenaAttempt(p,attempt))} attempts={progress.arenaAttempts||[]} dailyManifest={progress.daily?.arena} onDailyManifest={entry=>setProgress((p:any)=>({...p,daily:{...p.daily,arena:entry}}))}/>}
@@ -257,7 +238,7 @@ function App(){
           <div className="section-head"><h2>Knowledge investigations and milestones</h2></div>
           <div className="history"><p>{(progress.knowledgeAttempts||[]).length} sourced Wikidata relationship answers and {(progress.linkLab||[]).length} original-source link audits recorded on this device. <button onClick={()=>move('missions')}>View missions & achievements →</button></p></div>
           <div className="section-head"><h2>Reading continuity</h2></div><div className="history"><p>{journeyStats(progress).uniqueRead} distinct sourced articles read, {(progress.studyNotes||[]).length} private notes, {(progress.sourceClips||[]).length} source excerpts, {journeyStats(progress).reviewDue} reviews due. <button onClick={()=>move('study')}>Open Study Desk →</button></p></div>
-          <div className="section-head"><h2>Saved discoveries</h2></div><div className="topics">{Object.values(progress.saved).length?(Object.values(progress.saved) as Page['identity'][]).map(x=><div key={x.language+':'+x.pageId} className="saved"><button onClick={()=>read(x.title)}>{x.title} ↗</button><button aria-label={'Remove '+x.title} onClick={()=>toggle(x)}>Remove</button></div>):<p>Nothing saved yet. Explore Wikipedia to build your collection.</p>}</div>
+          <div className="section-head"><h2>Saved discoveries</h2></div><div className="topics">{Object.values(progress.saved).length?(Object.values(progress.saved) as Page['identity'][]).map(x=><div key={x.language+':'+x.pageId} className="saved"><button onClick={()=>read(x.title,null,x.language,x.revisionId)}>{x.title} ↗</button><button aria-label={'Remove '+x.title} onClick={()=>toggle(x)}>Remove</button></div>):<p>Nothing saved yet. Explore Wikipedia to build your collection.</p>}</div>
           <div className="section-head"><h2>Saved vocabulary</h2></div>
           <div className="history">{(progress.vocabulary||[]).length?(progress.vocabulary||[]).map((v:any)=><div key={v.id}><span>{v.language.toUpperCase()}</span><strong>{v.term} — {v.meaning}</strong><a href={revisionUrl(v.article)} target="_blank" rel="noreferrer">Source ↗</a></div>):<p>No words saved. Select text in WikiPolyglot to build your collection.</p>}</div>
           <div className="section-head"><h2>Personal evidence reviews</h2></div>

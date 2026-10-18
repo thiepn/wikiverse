@@ -7,3 +7,18 @@
 .article-clip-action{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;background:#172c36;border:1px solid #3d6471}.article-clip-action span{font-size:12px;color:#a9c0c7}.article-clip-action button:disabled{opacity:.48;cursor:not-allowed}
 
 .article-clip-action{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:15px 18px;background:#172c36;border:1px solid #3d6471}.article-clip-action span{font-size:12px;color:#a9c0c7}.article-clip-action button:disabled{opacity:.48;cursor:not-allowed}
+
+/* W01 grouped destination hierarchy and always-available five-section mobile entry. */
+.sidebar .nav-group{padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid #283b48}
+.sidebar nav .nav-primary{display:flex;flex-direction:column;align-items:flex-start;gap:5px;width:100%;padding:10px 12px;border-color:transparent;font-size:15px;color:#e8f2f3}
+.sidebar nav .nav-primary strong{font-size:14px}
+.sidebar nav .nav-primary small{font-size:10px;color:#94aebc;font-weight:500}
+.sidebar nav .nav-primary.active{background:#263d49;border-color:#426578}
+.sidebar .nav-children{display:grid;gap:2px;padding:3px 0 0 11px}
+.sidebar nav .nav-children button{min-height:36px;padding:8px 12px;font-size:12px}
+.sidebar nav .nav-children button>span:first-child{font-size:14px;width:17px}
+.universe-primary-tabs{display:flex;gap:4px;max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;border-bottom:1px solid #283744;padding:0 32px;background:#111d27}
+.universe-primary-tabs button{flex:1 0 auto;min-width:95px;background:transparent;border:0;border-bottom:2px solid transparent;color:#9db0bc;font-size:12px;font-weight:700;padding:12px 8px}
+.universe-primary-tabs button.active{border-bottom-color:#a6d6d6;color:#eff7f5;background:#203441}
+.universe-primary-tabs button:hover{background:#1e313c}
+@media(max-width:760px){.universe-primary-tabs{padding:0 11px}.universe-primary-tabs button{min-width:max-content;padding:12px 14px}.sidebar nav{padding-bottom:24px}}

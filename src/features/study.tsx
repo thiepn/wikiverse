@@ -5,7 +5,7 @@ import OfflineWorkbench from './offline-workbench';
 import OfflineCompare from './offline-compare';
 type Article={language:string;pageId:number;revisionId:number;title:string};
 type StudyEntry={key:string;article:Article;note:string;status:string;updatedAt:string;source:string};
-export default function StudyDesk({progress,onRead,onPractice,onSaveNote,onRemoveNote,onRemoveClip,onSaveClip,onRemoveOffline,onDefer,onSaveArticle,onNavigateMode}:{progress:any;onRead:(title:string,language?:string)=>void;onPractice:(title:string,review?:any)=>void;onSaveNote:(x:{article:Article;note:string;status:string})=>void;onRemoveNote:(key:string)=>void;onRemoveClip:(id:string)=>void;onSaveClip:(x:{article:Article;excerpt:string})=>void;onRemoveOffline:(key:string)=>void;onDefer:(key:string,days:number)=>void;onSaveArticle:(identity:Article)=>void;onNavigateMode:(mode:string)=>void}){
+export default function StudyDesk({progress,focusArticle,onRead,onPractice,onSaveNote,onRemoveNote,onRemoveClip,onSaveClip,onRemoveOffline,onDefer,onSaveArticle,onNavigateMode}:{progress:any;focusArticle?:Article|null;onRead:(title:string,language?:string)=>void;onPractice:(title:string,review?:any)=>void;onSaveNote:(x:{article:Article;note:string;status:string})=>void;onRemoveNote:(key:string)=>void;onRemoveClip:(id:string)=>void;onSaveClip:(x:{article:Article;excerpt:string})=>void;onRemoveOffline:(key:string)=>void;onDefer:(key:string,days:number)=>void;onSaveArticle:(identity:Article)=>void;onNavigateMode:(mode:string)=>void}){
  const [tab,setTab]=useState<'topics'|'reviews'|'journey'|'offline'>('topics');
  const [selected,setSelected]=useState<string>(''),[text,setText]=useState(''),[status,setStatus]=useState('open'),[error,setError]=useState('');
  const [showDeferred,setShowDeferred]=useState(false);
@@ -21,6 +21,7 @@ export default function StudyDesk({progress,onRead,onPractice,onSaveNote,onRemov
  const clips=chosen?clipsForArticle(progress,chosen.article):[];
  const note=(progress.studyNotes||[]).find((n:StudyEntry)=>n.key===chosen?.key);
  useEffect(()=>{if(!selected&&topics.length)edit(topics[0]);},[selected,topics.length]);
+ useEffect(()=>{if(!focusArticle)return;const target=topics.find(x=>x.article.language===focusArticle.language&&x.article.pageId===focusArticle.pageId);if(target)edit(target);},[focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);
  function edit(topic:{key:string;article:Article}){setSelected(topic.key);const previous=(progress.studyNotes||[]).find((n:StudyEntry)=>n.key===topic.key);setText(previous?.note||'');setStatus(previous?.status||'open');setError('');}
  function save(e:React.FormEvent){e.preventDefault();if(!chosen)return;try{onSaveNote({article:chosen.article,note:text,status});setError('');}catch(e:any){setError(e.message||'The private note could not be saved');}}
  return <section className="study">
