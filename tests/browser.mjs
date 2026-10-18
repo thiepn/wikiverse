@@ -157,7 +157,7 @@ try{
    // W03: original-source compact link challenge, then replay exact pinned pair.
    await page.locator('#linklab-density').selectOption('3');
    await page.getByRole('button',{name:/Generate sourced question/}).click();
-   await page.locator('.linklab-choices button').first().waitFor();
+   await page.waitForFunction(()=>document.querySelectorAll('.linklab-choices button').length===3);
    assert.equal(await page.locator('.linklab-choices button').count(),3);
    await page.locator('.linklab-choices button').first().click();
    await page.getByRole('button',{name:/Replay pinned source pair/}).click();
