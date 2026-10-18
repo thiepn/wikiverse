@@ -1,7 +1,7 @@
 /** Navigation changes the UI only. It does not create a new progress or scoring authority. */
 import {studyTopics} from './study.mjs';
 export const navigationSections=[
- {id:'home',title:'Explore',description:'Connections & discoveries',children:['galaxy','geo','chronicle','pulse','capsule']},
+ {id:'home',title:'Explore',description:'Relationships & history',children:['galaxy','geo','chronicle','pulse','capsule']},
  {id:'play',title:'Play',description:'Source-backed challenges',children:['race','mystery','linklab','arena','missions']},
  {id:'learn',title:'Learn',description:'Read, compare & remember',children:['polyglot','detective','study']},
  {id:'discover',title:'Discover',description:'Read real Wikipedia',children:[]},
