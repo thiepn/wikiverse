@@ -1,7 +1,7 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {makeReaderHtml} from './components/reader';
-import {STARTERS,MYSTERY_PEOPLE,choose,dateKey,hashSeed,applyRaceClick,acceptedEntityAnswer,mysteryScore,generateVerifiedRace,progressSummary,revisionUrl} from './domain/game.mjs';
+import {STARTERS,MYSTERY_PEOPLE,choose,dateKey,hashSeed,applyRaceClick,acceptedEntityAnswer,mysteryScore,generateVerifiedRace,progressSummary,revisionUrl,mysteryCluePlan,mysteryCandidateOrder} from './domain/game.mjs';
 import {loadArticle,loadMystery,searchArticles,apiStats} from './services/wikimedia.mjs';
 import {readProgress,saveProgress,recordRace,recordMystery,recordExploration,recordLearning,saveVocabulary,recordEvidenceReview,recordHistoryChallenge,recordArenaAttempt,recordKnowledgeAttempt,recordLinkLab,toggleSaved,initialProgress} from './services/storage.mjs';
 import './style.css';
@@ -87,6 +87,8 @@ function App(){
   const [notice,setNotice]=useState('');
   const [race,setRace]=useState<any>(null);
   const [starter,setStarter]=useState(STARTERS[0]);
+  const [raceHops,setRaceHops]=useState<1|2|3>(2);
+  const [mysteryLevel,setMysteryLevel]=useState<'guided'|'standard'|'expert'>('standard');
   const [linkLabTopic,setLinkLabTopic]=useState('Mathematics');
   const [linkLabReview,setLinkLabReview]=useState<any>(null);
   const [raceHint,setRaceHint]=useState(false);
@@ -135,7 +137,7 @@ function App(){
       const seed=daily?'daily-'+TODAY:'practice-'+Date.now();
       let manifest=daily&&currentProgress.current.daily?.race?.date===TODAY?currentProgress.current.daily.race.manifest:null;
       if(!manifest){
-        manifest=await generateVerifiedRace(source?.title||(daily?choose(STARTERS,TODAY):starter),seed,source?(title:string)=>playable(title,title===source.title?source.revisionId:undefined):playable,2);
+        manifest=await generateVerifiedRace(source?.title||(daily?choose(STARTERS,TODAY):starter),seed,source?(title:string)=>playable(title,title===source.title?source.revisionId:undefined):playable,daily?2:raceHops);
       }
       const page=await playable(manifest.start.title,manifest.start.revisionId);
       if(page.identity.pageId!==manifest.start.pageId)throw new Error('The starting article has changed. Generate a new route.');
@@ -144,6 +146,14 @@ function App(){
       if(daily)setProgress((p:any)=>({...p,daily:{...p.daily,race:{date:TODAY,manifest}}}));
       setRace({manifest,page,trail:[page.identity],started:Date.now(),finished:false,daily});
     }catch(e:any){if(number===op.current)setError(e.message||'Race preparation failed');}
+    finally{if(number===op.current)setBusy('');}
+  }
+  async function replayRace(){
+    if(!race?.manifest)return;
+    const number=++op.current;setBusy('Reopening original pinned route…');setError('');
+    try{const source=race.manifest.start;const page=await playable(source.title,source.revisionId);exactSource(page.identity,source);
+      if(number!==op.current)return;setRace({...race,page,trail:[page.identity],finished:false,started:Date.now()});setRaceHint(false);
+    }catch(e:any){if(number===op.current)setError(e.message||'Pinned route unavailable');}
     finally{if(number===op.current)setBusy('');}
   }
   async function travel(title:string){
@@ -169,12 +179,14 @@ function App(){
     try{
       const seed=hashSeed(daily?TODAY:String(Date.now()));
       let item:any=null;
-      for(let j=0;j<MYSTERY_PEOPLE.length;j++){
-        try{item=await loadMystery(MYSTERY_PEOPLE[(seed+j)%MYSTERY_PEOPLE.length]);break;}catch{}
+      const people=daily?MYSTERY_PEOPLE.map((_,i)=>MYSTERY_PEOPLE[(seed+i)%MYSTERY_PEOPLE.length]):mysteryCandidateOrder(MYSTERY_PEOPLE,String(Date.now()),(currentProgress.current.mysteries||[]).map((x:any)=>x.topic));
+      for(const title of people){
+        try{item=await loadMystery(title);break;}catch{}
       }
       if(!item)throw new Error('No available person has enough sourced clues.');
       if(number!==op.current)return;
-      setMystery({item,daily,revealed:1,wrong:0,finished:false,solved:false});
+      const plan=mysteryCluePlan(daily?'standard':mysteryLevel,item.clues.length);
+      setMystery({item,daily,revealed:plan.initial,maxReveal:plan.maxReveal,level:plan.level,wrong:0,finished:false,solved:false});
     }catch(e:any){if(number===op.current)setError(e.message||'Mystery unavailable');}
     finally{if(number===op.current)setBusy('');}
   }
@@ -222,18 +234,18 @@ function App(){
         {(screen==='home'||screen==='play'||screen==='learn')&&<Portal section={screen} progress={progress} onNavigate={mode=>move(mode as Screen)} onStudySource={openSourceStudy} onReadSource={article=>read(article.title,null,article.language,article.revisionId)} onReadStarter={title=>read(title)} onDailyRace={()=>startRace(true)} onDailyMystery={()=>startMystery(true)}/>}
         {screen==='race'&&<section>
           <div className="mode-head"><div className="eyebrow">01 / REAL ARTICLE NAVIGATION</div><h1>WikiRace<span className="accent">.</span></h1><p>Reach the destination using only actual links in the displayed article.</p></div>
-          {!race?<div className="panel"><h2>Generate a race</h2><p>The game checks a complete two-hop path before the challenge begins. Challenges are unranked.</p><label htmlFor="start">Starting article</label><select id="start" value={starter} onChange={e=>setStarter(e.target.value)}>{STARTERS.map(x=><option key={x}>{x}</option>)}</select><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>startRace(false)}>Generate verified route ↗</button><button disabled={Boolean(busy)} onClick={()=>startRace(true)}>Daily race · {TODAY}</button></div></div>:
-          <><div className="scoreboard"><div><span>START</span><strong>{race.manifest.start.title}</strong></div><span className="arrow">→</span><div><span>TARGET</span><strong>{race.manifest.target.title}</strong></div><div><span>CLICKS</span><strong>{race.trail.length-1}</strong></div></div>
-            {race.finished?<div className="panel success"><div className="eyebrow">DESTINATION REACHED</div><h2>You found the path.</h2><p>{race.trail.map((x:any)=>x.title).join(' → ')}</p><p>{race.trail.length-1} verified moves, saved locally.</p><button className="primary" onClick={()=>startRace(false)}>Race again →</button></div>:
+          {!race?<div className="panel"><h2>Generate a race</h2><p>Pick a route length. Each hop is verified against original Wikipedia links; long routes may not be available from every article. Daily routes remain two hops and unranked.</p><label htmlFor="race-hops">VERIFIED PATH LENGTH</label><select id="race-hops" value={raceHops} onChange={e=>setRaceHops(Number(e.target.value) as 1|2|3)}><option value={1}>Quick · 1 proven link</option><option value={2}>Classic · 2 proven links</option><option value={3}>Expedition · 3 proven links</option></select><label htmlFor="start">Starting article</label><select id="start" value={starter} onChange={e=>setStarter(e.target.value)}>{STARTERS.map(x=><option key={x}>{x}</option>)}</select><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>startRace(false)}>Generate verified route ↗</button><button disabled={Boolean(busy)} onClick={()=>startRace(true)}>Daily race · {TODAY}</button></div></div>:
+          <><div className="scoreboard"><div><span>START</span><strong>{race.manifest.start.title}</strong></div><span className="arrow">→</span><div><span>TARGET</span><strong>{race.manifest.target.title}</strong></div><div><span>CLICKS</span><strong>{race.trail.length-1}</strong></div><div><span>VERIFIED HOPS</span><strong>{race.manifest.proof.length-1}</strong></div></div>
+            {race.finished?<div className="panel success"><div className="eyebrow">DESTINATION REACHED</div><h2>You found the path.</h2><p>{race.trail.map((x:any)=>x.title).join(' → ')}</p><p>{race.trail.length-1} verified moves, saved locally.</p><div className="race-proof-sources"><strong>Original proven route</strong>{race.manifest.proof.map((article:any,i:number)=><a key={article.language+':'+article.pageId} href={revisionUrl(article)} target="_blank" rel="noreferrer">{i+1}. {article.title} · revision {article.revisionId} ↗</a>)}</div><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>void replayRace()}>Replay same pinned route →</button><button onClick={()=>startRace(false)}>Generate another route →</button></div></div>:
             <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">CURRENT ARTICLE</div><h2>{race.page.identity.title}</h2></div><button onClick={()=>setRaceHint(!raceHint)}>{raceHint?'Hide hint':'Show proof hint'}</button></div>{raceHint&&<div className="hint">One proven (not necessarily shortest) route: {race.manifest.proof.map((x:any)=>x.title).join(' → ')}</div>}<p className="eyebrow">CLICK INLINE SOURCE LINKS TO TRAVEL</p><button className="text-action" onClick={()=>setJourneySource(topicSource(race.page.identity))}>Connect this pinned race article to other modes →</button><Article page={race.page} onTravel={travel} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))} onOffline={saveOffline}/></div>}
             <div className="trail"><span className="eyebrow">YOUR PATH</span><p>{race.trail.map((x:any)=>x.title).join(' → ')}</p></div><button className="text-action" onClick={()=>{op.current++;setRace(null);setBusy('');}}>← Leave race</button>
           </>}
         </section>}
         {screen==='mystery'&&<section>
           <div className="mode-head"><div className="eyebrow">02 / EVIDENCE GAME</div><h1>WikiMystery<span className="accent">.</span></h1><p>Find a person from clues generated from concrete Wikidata claims.</p></div>
-          {!mystery?<div className="panel"><h2>Identify the unknown person</h2><p>Each eligible puzzle requires at least three separate sourced Wikidata properties.</p><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>startMystery(false)}>Start mystery →</button><button disabled={Boolean(busy)} onClick={()=>startMystery(true)}>Daily mystery · {TODAY}</button></div></div>:
-          <div className="mystery-grid"><div className="panel"><div className="flex between"><span className="eyebrow">ENTITY {mystery.item.id}</span><span className="eyebrow">CLUE {mystery.revealed} / {mystery.item.clues.length}</span></div><div className="question">?</div><h2>Who is this person?</h2><div className="clues">{mystery.item.clues.slice(0,mystery.revealed).map((c:any,i:number)=><div key={c.property+'-'+i}><span>{String(i+1).padStart(2,'0')}</span><p>{c.text}</p></div>)}</div>
-            {!mystery.finished?<><form onSubmit={checkGuess}><label htmlFor="answer">YOUR ANSWER</label><div className="actions"><input id="answer" value={guess} onChange={e=>setGuess(e.target.value)} placeholder="Enter full name" autoComplete="off"/><button className="primary" type="submit">Submit →</button></div></form>{mystery.wrong>0&&<p>Incorrect guesses: {mystery.wrong}</p>}<div className="actions"><button disabled={mystery.revealed===mystery.item.clues.length} onClick={()=>setMystery({...mystery,revealed:mystery.revealed+1})}>Reveal next clue</button><button onClick={()=>finishMystery({...mystery,finished:true,solved:false})}>Give up / reveal answer</button></div></>:<div className="result"><div className="eyebrow">{mystery.solved?'CORRECT':'ANSWER REVEALED'}</div><h2>{mystery.item.title}</h2><p>Score: {mystery.solved?mysteryScore(mystery.revealed,mystery.wrong):0} · Stored locally</p><button className="primary" onClick={()=>startMystery(false)}>Another mystery →</button></div>}
+          {!mystery?<div className="panel"><h2>Identify the unknown person</h2><p>Each eligible puzzle needs three separate source Wikidata properties. Guided starts with two clues; Standard starts with one; Expert starts with one and has no extra reveals. All use the original local scorer.</p><label htmlFor="mystery-level">PRACTICE CLUE LEVEL</label><select id="mystery-level" value={mysteryLevel} onChange={e=>setMysteryLevel(e.target.value as 'guided'|'standard'|'expert')}><option value="guided">Guided · 2 initial claims</option><option value="standard">Standard · 1 initial claim</option><option value="expert">Expert · 1 claim, no extra reveals</option></select><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>startMystery(false)}>Start mystery →</button><button disabled={Boolean(busy)} onClick={()=>startMystery(true)}>Daily mystery · {TODAY}</button></div></div>:
+          <div className="mystery-grid"><div className="panel"><div className="flex between"><span className="eyebrow">ENTITY {mystery.item.id}</span><span className="eyebrow">CLUE {mystery.revealed} / {mystery.item.clues.length} · {mystery.level?.toUpperCase()||'STANDARD'}</span></div><div className="question">?</div><h2>Who is this person?</h2><div className="clues">{mystery.item.clues.slice(0,mystery.revealed).map((c:any,i:number)=><div key={c.property+'-'+i}><span>{String(i+1).padStart(2,'0')}</span><p>{c.text}</p></div>)}</div>
+            {!mystery.finished?<><form onSubmit={checkGuess}><label htmlFor="answer">YOUR ANSWER</label><div className="actions"><input id="answer" value={guess} onChange={e=>setGuess(e.target.value)} placeholder="Enter full name" autoComplete="off"/><button className="primary" type="submit">Submit →</button></div></form>{mystery.wrong>0&&<p>Incorrect guesses: {mystery.wrong}</p>}<div className="actions"><button disabled={mystery.revealed>=mystery.maxReveal} onClick={()=>setMystery({...mystery,revealed:Math.min(mystery.maxReveal,mystery.revealed+1)})}>Reveal next clue</button><button onClick={()=>finishMystery({...mystery,finished:true,solved:false})}>Give up / reveal answer</button></div></>:<div className="result"><div className="eyebrow">{mystery.solved?'CORRECT':'ANSWER REVEALED'}</div><h2>{mystery.item.title}</h2><p>Score: {mystery.solved?mysteryScore(mystery.revealed,mystery.wrong):0} · Stored locally</p><button className="primary" onClick={()=>startMystery(false)}>Another sourced mystery →</button><button onClick={()=>{const title=mystery.item?.identity?.articleTitle;if(title){setQuery(title);void read(title);}}}>Read this person's Wikipedia article →</button></div>}
           </div><aside className="panel side"><div className="eyebrow">POTENTIAL POINTS</div><strong>{mystery.finished&&!mystery.solved?0:mysteryScore(mystery.revealed,mystery.wrong)}</strong><p>Reveals and incorrect guesses reduce the score. Full names and documented aliases are accepted.</p><a target="_blank" rel="noreferrer" href={mystery.item.sourceUrl}>View Wikidata entity and claims ↗</a><a target="_blank" rel="noreferrer" href="https://www.wikidata.org/wiki/Wikidata:Licensing">Wikidata CC0 ↗</a></aside></div>}
           {mystery&&<button className="text-action" onClick={()=>{op.current++;setMystery(null);setBusy('');}}>← Leave mystery</button>}
         </section>}
