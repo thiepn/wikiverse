@@ -24,5 +24,5 @@ test('W03 three Link Lab choice densities draw only real links',()=>{
  const c=buildCommonLinkAudit(a,b,{seed:'density',limit});assert.ok(c.choices.includes('Shared'));assert.equal(c.choices.length,limit);
  }
  assert.throws(()=>buildLinkAudit(a,page('Sparse',3,['Z1','Z2']),{limit:5}),/Not enough/);
- assert.throws(()=>buildCommonLinkAudit(a,page('Sparse',3,['Shared','Z1','Z2']),{limit:5}),/Insufficient/);
+ assert.throws(()=>buildCommonLinkAudit(a,page('Sparse',3,['Shared','A1','A2','Z1','Z2']),{limit:5}),/Insufficient/);
 });
