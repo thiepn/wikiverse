@@ -93,7 +93,7 @@ try{
    const page=await context.newPage();page.setDefaultTimeout(12000);const issues=[];
    page.on('pageerror',e=>issues.push(e.message));
    await page.goto('http://127.0.0.1:4173',{waitUntil:'domcontentloaded'});
-   await page.getByRole('heading',{name:/Everything is/i}).waitFor();
+   await page.getByRole('heading',{name:'Follow what connects.'}).waitFor();
    async function nav(name){if(mode==='mobile')await page.getByRole('button',{name:'Toggle navigation'}).click();await page.locator('nav button').filter({hasText:name}).click();}
    // W01 real navigation: all five destinations are accessible before individual game modes.
    await page.getByRole('heading',{name:'Follow what connects.'}).waitFor();
@@ -250,6 +250,11 @@ try{
    assert.ok((await page.locator('.mission-achievement').count())>=6);
    await nav('Discover');
    await page.locator('.topics button').filter({hasText:'Mathematics'}).click();
+   // A source-specific handoff selects the original article rather than stale notes.
+   await page.getByRole('button',{name:'Study this article →'}).click();
+   await page.locator('.study-panel').getByRole('heading',{name:'Mathematics'}).waitFor();
+   await nav('Discover');
+
    await page.locator('.reader-toolbar h2').getByText('Mathematics').waitFor();
    await page.getByRole('button',{name:/Save compact offline reading/}).click();
    await page.locator('.article-body a[data-article-title="Physics"]').click();
@@ -344,7 +349,7 @@ try{
    await page.getByRole('button',{name:/Confirm replacement/}).click();
    await page.getByText(/Verified backup replaced this device/).waitFor();
    await page.reload({waitUntil:'domcontentloaded'});
-   await page.getByRole('heading',{name:/Everything is/i}).waitFor();
+   await page.getByRole('heading',{name:'Follow what connects.'}).waitFor();
    await nav('Study Desk');
    await page.getByRole('heading',{name:/Study Desk/}).waitFor();
    await page.locator('.study-topic-list button').filter({hasText:'Mathematics'}).click();

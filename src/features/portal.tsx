@@ -7,7 +7,7 @@ import './portal.css';
 type Article={language:string;pageId:number;revisionId:number;title:string};
 type Props={
  section:'home'|'play'|'learn';progress:any;
- onNavigate:(screen:string)=>void;onReadSource:(article:Article)=>void;
+ onNavigate:(screen:string)=>void;onStudySource:(article:Article)=>void;onReadSource:(article:Article)=>void;
  onReadStarter:(title:string)=>void;onDailyRace:()=>void;onDailyMystery:()=>void;
 };
 const explore=[
@@ -29,7 +29,7 @@ const learn=[
  {id:'detective',tag:'EVIDENCE LITERACY',name:'Source Detective',detail:'Inspect original citations and write ungraded evidence notes.'},
  {id:'study',tag:'YOUR RESEARCH',name:'Study Desk',detail:'Continue original-source notes, review pointers and offline reading.'}
 ];
-export default function Portal({section,progress,onNavigate,onReadSource,onReadStarter,onDailyRace,onDailyMystery}:Props){
+export default function Portal({section,progress,onNavigate,onStudySource,onReadSource,onReadStarter,onDailyRace,onDailyMystery}:Props){
  const resume=resumeSource(progress),journey=journeyStats(progress),today=dailyMissionBoard(progress);
  const choices=section==='home'?explore:section==='play'?play:learn;
  return <section className="universe-portal" aria-label={section==='home'?'Explore WikiVerse':section==='play'?'Play WikiVerse':'Learn WikiVerse'}>
@@ -50,7 +50,7 @@ export default function Portal({section,progress,onNavigate,onReadSource,onReadS
   </div>
   {resume&&<section className="universe-resume" aria-label="Resume original source">
     <div><span className="eyebrow">CONTINUE YOUR ORIGINAL SOURCE</span><h2>{resume.title}</h2><p>{resume.language.toUpperCase()} Wikipedia · page {resume.pageId} · revision {resume.revisionId}. The reading action opens this exact saved revision rather than silently substituting a different article.</p></div>
-    <div className="universe-resume-actions"><button onClick={()=>onReadSource(resume)}>Read pinned revision →</button><button onClick={()=>onNavigate('study')}>Study notes & reviews →</button></div>
+    <div className="universe-resume-actions"><button onClick={()=>onReadSource(resume)}>Read pinned revision →</button><button onClick={()=>onStudySource(resume)}>Study notes & reviews →</button></div>
    </section>}
   {section==='home'&&<div className="universe-guidance"><div><span className="eyebrow">START WITH THE SOURCE</span><h2>Read → Explore → Play → Learn</h2><p>Begin with an article. Follow linked topics, try a source-backed challenge, then revisit its evidence in Study Desk. Modes are independent tools, not fabricated stages of mastery.</p></div><button onClick={()=>onNavigate('discover')}>Search Wikipedia →</button></div>}
   <div className="universe-section-heading"><div><span className="eyebrow">{section==='home'?'EXPLORE DIMENSIONS':section==='play'?'CHOOSE YOUR GAME':'LEARNING TOOLS'}</span><h2>{section==='home'?'Explore a connection':section==='play'?'Five ways to play':'Your next investigation'}</h2></div><span>{choices.length} ORIGINAL ENGINES</span></div>
