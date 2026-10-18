@@ -239,6 +239,7 @@ try{
    await nav('Discover');
    await page.locator('.topics button').filter({hasText:'Mathematics'}).click();
    await page.locator('.reader-toolbar h2').getByText('Mathematics').waitFor();
+   await page.getByRole('button',{name:/Save compact offline reading/}).click();
    await page.locator('.article-body a[data-article-title="Physics"]').click();
    await page.locator('.reader-toolbar h2').getByText('Physics').waitFor();
    await page.locator('.article-body p').first().evaluate(el=>{
@@ -250,6 +251,13 @@ try{
    await page.getByRole('button',{name:/Offline reading/}).click();
    await page.locator('.study-offline-reader').waitFor();
    assert.match(await page.locator('.study-offline-reader').innerText(),/Physics/);
+   await page.locator('.offline-compare').waitFor();
+   assert.equal(await page.locator('.offline-compare-source').count(),2);
+   await page.locator('#compare-search').fill('scientific observations');
+   await page.locator('.offline-compare-results button').first().click();
+   await page.locator('.offline-compare-quiz .offline-compare-actions button').first().click();
+   assert.match(await page.locator('.offline-compare-message').innerText(),/saved revision/);
+   await page.locator('.offline-compare-quiz>button').click();
    assert.match(await page.locator('.study-offline-reader a').first().getAttribute('href')||'',/oldid=222/);
    await page.getByRole('textbox',{name:'Search this saved text'}).fill('scientific observations');
    await page.locator('.offline-match-list button').first().click();

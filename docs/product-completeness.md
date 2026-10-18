@@ -54,3 +54,9 @@ Source audit updated: October 17, 2026. Intended scope: Play, Explore, Learn, My
 - Study Desk offline shelf exposes a keyboard-usable reader, size controls and ungraded self-recall reveal. Only the saved text is available without network; links to full upstream articles naturally still require connectivity. Capture stores plain text and original language/page/revision identities, never HTML or grading authority.
 - Uses unchanged `wikiverse:progress:v1` local authority and manual backup merge/replace (backward-compatible with backups lacking new collection). Existing source-scored engines cannot use offline text to award credit.
 - Validation must reject missing IDs, altered revision URL, unwanted fields, oversized collections, duplicate identities, and keep current local data if capacity/restore validation fails.
+
+## Two-source offline comparison — October 18, 2026
+
+- Side-by-side user-owned original Wikipedia source revision reader: independent language/page/revision identity, literal per-edition search, passage navigation, contributor links and direct private note handoff. Different sources are explicitly not verified translations or necessarily the same topic.
+- Unique literal quotation challenges derive from text in exactly one saved original and refuse ambiguity. No new progress schema, remote request, persisted grades or artificial source knowledge.
+- Source clipping reuses the original exact-selection validator and local user-owned excerpts. Responsive mobile layout and native keyboard controls. Source/Unicode/tampering tests and desktop/mobile browser acceptance added.
