@@ -31,11 +31,11 @@ export default function Exploration({mode,focusArticle,onRead,onComplete,onKnowl
    void load();return()=>{active=false;};
  },[mode,focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);
  useEffect(()=>{let active=true;setFocusEvidence(null);setFocusError('');const selectedSource=focusArticle;if(!selectedSource)return;
-   async function inspect(){try{
-     const evidence=await topicWikidataEvidence(selectedSource);if(!active)return;setFocusEvidence(evidence);
-     if(mode==='galaxy'){const graph=await galaxyForQid(evidence.qid);if(active){setGalaxy(graph);setTopic(selectedSource.title);setFilter('all');setTrail([]);setRelationRound(0);setRelationChoice(null);}}
+   async function inspect(source:Article){try{
+     const evidence=await topicWikidataEvidence(source);if(!active)return;setFocusEvidence(evidence);
+     if(mode==='galaxy'){const graph=await galaxyForQid(evidence.qid);if(active){setGalaxy(graph);setTopic(source.title);setFilter('all');setTrail([]);setRelationRound(0);setRelationChoice(null);}}
    }catch(e:any){if(active)setFocusError(e.message||'No evidence for this source');}}
-   void inspect();return()=>{active=false;};
+   void inspect(selectedSource);return()=>{active=false;};
  },[mode,focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);
  useEffect(()=>{if(mode!=='galaxy'||topic.trim().length<3){setMatches([]);return;}let active=true;const timer=setTimeout(()=>searchArticles(topic).then(x=>{if(active)setMatches(x.slice(0,6));}).catch(()=>{if(active)setMatches([]);}),350);return()=>{active=false;clearTimeout(timer);};},[mode,topic]);
  async function loadGalaxy(titleOrId:string,byId=false){if(busy)return;setBusy('Expanding verified relationships…');setError('');try{const x=byId?await galaxyForQid(titleOrId):await galaxyForTitle(titleOrId);if(byId&&galaxy)setTrail(t=>[...t,galaxy.root.id]);if(!byId)setTrail([]);setGalaxy(x);setFilter('all');setMatches([]);setRelationRound(0);setRelationChoice(null);}catch(e:any){setError(e.message);}finally{setBusy('');}}
