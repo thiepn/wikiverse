@@ -59,6 +59,7 @@ export function chooseVerifiedStep(links, visited, seed) {
   return choose(unique, seed);
 }
 export async function generateVerifiedRace(startTitle, seed, readArticle, maxHops=2) {
+  if (![1,2,3].includes(maxHops)) throw new Error('Choose one, two or three verified source-link hops');
   const start = await readArticle(startTitle);
   const visited = new Set([normalizeTitle(start.identity.title)]);
   const proof = [start.identity];
@@ -83,7 +84,7 @@ export async function generateVerifiedRace(startTitle, seed, readArticle, maxHop
     proof.push(next.identity);
     previous = next;
   }
-  if (proof.length < 3) throw new Error('Race requires a verified two-hop route');
+  if (proof.length !== maxHops+1) throw new Error('Race requires the requested number of verified source-link hops');
   return { id: `race-${seed}`, seed, start: proof[0], target: proof[proof.length-1], proof, createdAt: new Date().toISOString(), rulesVersion: 1, ranked: false };
 }
 export function entityId(value) {return /^Q[1-9]\d*$/.test(value || '') ? value : null;}
@@ -126,6 +127,17 @@ export function acceptedEntityAnswer(entity, input) {
   const text = normalizeTitle(input).toLocaleLowerCase('en');
   const names = [...Object.values(entity.labels||{}), ...Object.values(entity.aliases||{}).flat()].map(x=>typeof x === 'string'?x:x?.value).filter(Boolean);
   return Boolean(text && names.some(name=>normalizeTitle(name).toLocaleLowerCase('en')===text));
+}
+export function mysteryCluePlan(level,eligibleClues){
+ if(!Number.isSafeInteger(eligibleClues)||eligibleClues<3)throw new Error('Mystery requires at least three Wikidata-property clues');
+ if(!['guided','standard','expert'].includes(level))throw new Error('Unsupported mystery practice level');
+ return {level,initial:level==='guided'?2:1,maxReveal:level==='expert'?1:eligibleClues};
+}
+export function mysteryCandidateOrder(names,seed,recent=[]){
+ if(!Array.isArray(names)||!Array.isArray(recent)||!names.every(x=>typeof x==='string'))throw new Error('Invalid sourced mystery candidates');
+ if(!names.length)return [];
+ const shift=hashSeed(String(seed))%names.length,rotated=[...names.slice(shift),...names.slice(0,shift)],used=new Set(recent.filter(x=>typeof x==='string').slice(0,4));
+ return [...rotated.filter(x=>!used.has(x)),...rotated.filter(x=>used.has(x))];
 }
 export function mysteryScore(revealed, wrongGuesses) {
   return Math.max(20, 120 - Math.max(1,revealed)*20 - Math.max(0,wrongGuesses)*10);

@@ -3,8 +3,9 @@ import {STARTERS,hashSeed,normalizeTitle,isArticleTitle} from '../domain/game.mj
 import {buildLinkAudit,buildCommonLinkAudit} from '../domain/linklab.mjs';
 import {checkedArticle} from '../domain/study.mjs';
 /** Bounded attempts; only real titles and original page/revision identities. */
-/** @param {{start?:string,seed?:string,sourceArticle?:any}} [options] */
-export async function createLinkAudit({start='Mathematics',seed='linklab_1',sourceArticle=null}={}){
+/** @param {{start?:string,seed?:string,sourceArticle?:any,choices?:3|4|5}} [options] */
+export async function createLinkAudit({start='Mathematics',seed='linklab_1',sourceArticle=null,choices=4}={}){
+ if(![3,4,5].includes(choices))throw new Error('Unsupported original-source choice density');
  if(typeof seed!=='string'||seed.length<2||seed.length>80||!isArticleTitle(start)||start.trim().length>190)throw new Error('Choose a valid Wikipedia article title and seed');
  const pinned=sourceArticle?checkedArticle(sourceArticle):null;
  if(pinned&&(pinned.language!=='en'||pinned.title!==normalizeTitle(start)))throw new Error('Focused Link Lab requires the same English original title');
@@ -16,8 +17,8 @@ export async function createLinkAudit({start='Mathematics',seed='linklab_1',sour
  for(const candidate of ordered){
   try{
    const second=await loadArticle(candidate.title);
-   const question=buildLinkAudit(first,second,{seed});
-   let common=null;try{common=buildCommonLinkAudit(first,second,{seed});}catch{/* shared links genuinely absent */}
+   const question=buildLinkAudit(first,second,{seed,limit:choices});
+   let common=null;try{common=buildCommonLinkAudit(first,second,{seed,limit:choices});}catch{/* shared links genuinely absent */}
    return {question,common,pages:[first,second],retrievedAt:new Date().toISOString()};
   }catch(e){if(sourceFailureAdvice(e).retryable)throw e;error=e;}
  }
