@@ -7,6 +7,8 @@ import {readProgress,saveProgress,recordRace,recordMystery,recordExploration,rec
 import './style.css';
 import Portal from './features/portal';
 import {navigationSections,sectionForScreen,resumeSource} from './domain/portal.mjs';
+import {topicSource,sourceHandoff,exactSource} from './domain/journey.mjs';
+import TopicJourney from './features/topic-journey';
 import Exploration from './features/exploration';
 import Learning from './features/learning';
 import HistoryExplorer from './features/history';
@@ -95,14 +97,28 @@ function App(){
   const [results,setResults]=useState<any[]>([]);
   const [mobileNav,setMobileNav]=useState(false);
   const [studyFocus,setStudyFocus]=useState<Page['identity']|null>(null);
+  const [journeySource,setJourneySource]=useState<Page['identity']|null>(null);
+  const [modeFocus,setModeFocus]=useState<{mode:Screen;article:Page['identity']}|null>(null);
   const op=useRef(0);
   const qOp=useRef(0);
   useEffect(()=>{currentProgress.current=progress;try{saveProgress(progress);}catch{setError('Local storage is unavailable or full. Progress may not persist.');}},[progress]);
   const stats=progressSummary(progress);
   const raceDone=progress.races.some((r:any)=>r.dailyKey===TODAY);
   const mysteryDone=progress.mysteries.some((r:any)=>r.dailyKey===TODAY);
-  function move(next:Screen){op.current++;setScreen(next);setMobileNav(false);setError('');setBusy('');if(next==='study')setStudyFocus(null);}
-  function openSourceStudy(article:Page['identity']){move('study');setStudyFocus(article);}
+  function move(next:Screen){op.current++;setScreen(next);setMobileNav(false);setError('');setBusy('');setModeFocus(null);if(next==='study')setStudyFocus(null);}
+  function openSourceStudy(article:Page['identity']){const canonical=topicSource(article);setJourneySource(canonical);move('study');setStudyFocus(canonical);}
+  function openJourney(mode:string){
+    if(!journeySource)return;
+    try{
+      const focus=sourceHandoff(mode,journeySource);
+      const dest=focus.mode as Screen;
+      if(dest==='study'){openSourceStudy(focus.article);return;}
+      if(dest==='discover'){void read(focus.article.title,null,focus.article.language,focus.article.revisionId);return;}
+      if(dest==='race'){void startRace(false,focus.article);return;}
+      if(dest==='linklab'){setLinkLabTopic(focus.article.title);setLinkLabReview(null);}
+      move(dest);setModeFocus({mode:dest,article:focus.article});
+    }catch(e:any){setError(e.message||'This source handoff is not available');}
+  }
   function saveOffline(page:Page,html:string){
     try{
       const next=saveOfflineSnapshot(currentProgress.current,captureOfflineReading(page,html));
@@ -112,17 +128,18 @@ function App(){
   }
   function saved(id:Page['identity']){return Boolean(progress.saved[id.language+':'+id.pageId]);}
   function toggle(id:Page['identity']){setProgress((p:any)=>toggleSaved(p,id));}
-  async function startRace(daily:boolean){
+  async function startRace(daily:boolean,source?:Page['identity']){
     const number=++op.current;
     setBusy('Building a verified article-link route…');setError('');setRace(null);setRaceHint(false);setScreen('race');
     try {
       const seed=daily?'daily-'+TODAY:'practice-'+Date.now();
       let manifest=daily&&currentProgress.current.daily?.race?.date===TODAY?currentProgress.current.daily.race.manifest:null;
       if(!manifest){
-        manifest=await generateVerifiedRace(daily?choose(STARTERS,TODAY):starter,seed,playable,2);
+        manifest=await generateVerifiedRace(source?.title||(daily?choose(STARTERS,TODAY):starter),seed,source?(title:string)=>playable(title,title===source.title?source.revisionId:undefined):playable,2);
       }
       const page=await playable(manifest.start.title,manifest.start.revisionId);
       if(page.identity.pageId!==manifest.start.pageId)throw new Error('The starting article has changed. Generate a new route.');
+      if(source)exactSource(page.identity,source);
       if(number!==op.current)return;
       if(daily)setProgress((p:any)=>({...p,daily:{...p.daily,race:{date:TODAY,manifest}}}));
       setRace({manifest,page,trail:[page.identity],started:Date.now(),finished:false,daily});
@@ -177,7 +194,7 @@ function App(){
   function practiceLinks(title:string,review:any=null){setLinkLabTopic(title);setLinkLabReview(review);move('linklab');}
   async function read(title:string,from:Page['identity']|null=null,language='en',revisionId:number|null=null){
     const number=++op.current;setScreen('discover');setBusy('Reading '+title+' ('+language+')…');setError('');
-    try{const page=await loadArticle(title,revisionId,language);if(number===op.current){setDiscover(page);setProgress((p:any)=>recordReadingVisit(p,{article:page.identity,from}));}}
+    try{const page=await loadArticle(title,revisionId,language);if(number===op.current){setDiscover(page);setJourneySource(topicSource(page.identity));setProgress((p:any)=>recordReadingVisit(p,{article:page.identity,from}));}}
     catch(e:any){if(number===op.current)setError(e.message||'Article unavailable');}
     finally{if(number===op.current)setBusy('');}
   }
@@ -201,13 +218,14 @@ function App(){
         {error&&<div className="error" role="alert">{error} <button onClick={()=>setError('')}>Dismiss</button></div>}
         {notice&&<p role="status" className="study-confirm">{notice} <button onClick={()=>setNotice('')}>Dismiss</button></p>}
         {busy&&<div className="loading" role="status">{busy}</div>}
+        {journeySource&&<TopicJourney source={journeySource} onGo={openJourney} onClear={()=>{setJourneySource(null);setModeFocus(null);}}/>}
         {(screen==='home'||screen==='play'||screen==='learn')&&<Portal section={screen} progress={progress} onNavigate={mode=>move(mode as Screen)} onStudySource={openSourceStudy} onReadSource={article=>read(article.title,null,article.language,article.revisionId)} onReadStarter={title=>read(title)} onDailyRace={()=>startRace(true)} onDailyMystery={()=>startMystery(true)}/>}
         {screen==='race'&&<section>
           <div className="mode-head"><div className="eyebrow">01 / REAL ARTICLE NAVIGATION</div><h1>WikiRace<span className="accent">.</span></h1><p>Reach the destination using only actual links in the displayed article.</p></div>
           {!race?<div className="panel"><h2>Generate a race</h2><p>The game checks a complete two-hop path before the challenge begins. Challenges are unranked.</p><label htmlFor="start">Starting article</label><select id="start" value={starter} onChange={e=>setStarter(e.target.value)}>{STARTERS.map(x=><option key={x}>{x}</option>)}</select><div className="actions"><button className="primary" disabled={Boolean(busy)} onClick={()=>startRace(false)}>Generate verified route ↗</button><button disabled={Boolean(busy)} onClick={()=>startRace(true)}>Daily race · {TODAY}</button></div></div>:
           <><div className="scoreboard"><div><span>START</span><strong>{race.manifest.start.title}</strong></div><span className="arrow">→</span><div><span>TARGET</span><strong>{race.manifest.target.title}</strong></div><div><span>CLICKS</span><strong>{race.trail.length-1}</strong></div></div>
             {race.finished?<div className="panel success"><div className="eyebrow">DESTINATION REACHED</div><h2>You found the path.</h2><p>{race.trail.map((x:any)=>x.title).join(' → ')}</p><p>{race.trail.length-1} verified moves, saved locally.</p><button className="primary" onClick={()=>startRace(false)}>Race again →</button></div>:
-            <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">CURRENT ARTICLE</div><h2>{race.page.identity.title}</h2></div><button onClick={()=>setRaceHint(!raceHint)}>{raceHint?'Hide hint':'Show proof hint'}</button></div>{raceHint&&<div className="hint">One proven (not necessarily shortest) route: {race.manifest.proof.map((x:any)=>x.title).join(' → ')}</div>}<p className="eyebrow">CLICK INLINE SOURCE LINKS TO TRAVEL</p><Article page={race.page} onTravel={travel} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))} onOffline={saveOffline}/></div>}
+            <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">CURRENT ARTICLE</div><h2>{race.page.identity.title}</h2></div><button onClick={()=>setRaceHint(!raceHint)}>{raceHint?'Hide hint':'Show proof hint'}</button></div>{raceHint&&<div className="hint">One proven (not necessarily shortest) route: {race.manifest.proof.map((x:any)=>x.title).join(' → ')}</div>}<p className="eyebrow">CLICK INLINE SOURCE LINKS TO TRAVEL</p><button className="text-action" onClick={()=>setJourneySource(topicSource(race.page.identity))}>Connect this pinned race article to other modes →</button><Article page={race.page} onTravel={travel} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))} onOffline={saveOffline}/></div>}
             <div className="trail"><span className="eyebrow">YOUR PATH</span><p>{race.trail.map((x:any)=>x.title).join(' → ')}</p></div><button className="text-action" onClick={()=>{op.current++;setRace(null);setBusy('');}}>← Leave race</button>
           </>}
         </section>}
@@ -225,12 +243,12 @@ function App(){
           {!discover?<><div className="section-head"><h2>Start somewhere</h2></div><div className="topics">{STARTERS.map(x=><button onClick={()=>read(x)} key={x}>{x} ↗</button>)}</div></>:
           <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">ARTICLE</div><h2>{discover.identity.title}</h2></div><div className="actions"><button onClick={()=>toggle(discover.identity)}>{saved(discover.identity)?'✓ Saved':'＋ Save'}</button>{discover.identity.language==='en'&&<button onClick={()=>practiceLinks(discover.identity.title)}>Practice source links →</button>}<button onClick={()=>openSourceStudy(discover.identity)}>Study this article →</button></div></div><Article page={discover} onTravel={title=>read(title,discover.identity,discover.identity.language)} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))} onOffline={saveOffline}/><button className="text-action" onClick={()=>setDiscover(null)}>← All topics</button></div>}
         </section>}
-        {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
-        {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))} onClip={(entry:any)=>setProgress((p:any)=>saveSourceClip(p,entry))} onOffline={(page:any)=>saveOffline(page,makeReaderHtml(page).html)}/>}
+        {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} focusArticle={modeFocus?.mode===screen?modeFocus.article:null} onRead={read} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
+        {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} focusArticle={modeFocus?.mode===screen?modeFocus.article:null} onSelectSource={article=>setJourneySource(topicSource(article))} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))} onClip={(entry:any)=>setProgress((p:any)=>saveSourceClip(p,entry))} onOffline={(page:any)=>saveOffline(page,makeReaderHtml(page).html)}/>}
         {(screen==='pulse'||screen==='capsule')&&<HistoryExplorer key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordHistoryChallenge(p,result))}/>}
         {screen==='backup'&&<BackupCenter progress={progress} onCommit={(inspection,mode)=>{const restored=commitInspectedRestore(currentProgress.current,inspection,mode,window.localStorage);setProgress(restored);}}/>}
-        {screen==='study'&&<StudyDesk progress={progress} focusArticle={studyFocus} onRead={(title,language)=>read(title,null,language||'en')} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onRemoveClip={id=>setProgress((p:any)=>removeSourceClip(p,id))} onSaveClip={input=>setProgress((p:any)=>saveSourceClip(p,input))} onRemoveOffline={key=>setProgress((p:any)=>removeOfflineSnapshot(p,key))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onNavigateMode={mode=>move(mode as Screen)} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
-        {screen==='linklab'&&<LinkLab initialTopic={linkLabTopic} initialReview={linkLabReview} onComplete={entry=>setProgress((p:any)=>recordLinkLab(p,entry))}/>}
+        {screen==='study'&&<StudyDesk progress={progress} focusArticle={studyFocus} onRead={(title,language)=>read(title,null,language||'en')} onPractice={practiceLinks} onSaveNote={entry=>setProgress((p:any)=>saveStudyNote(p,entry))} onRemoveNote={key=>setProgress((p:any)=>removeStudyNote(p,key))} onRemoveClip={id=>setProgress((p:any)=>removeSourceClip(p,id))} onSaveClip={input=>setProgress((p:any)=>saveSourceClip(p,input))} onRemoveOffline={key=>setProgress((p:any)=>removeOfflineSnapshot(p,key))} onSaveArticle={identity=>setProgress((p:any)=>p.saved[identity.language+':'+identity.pageId]?p:toggleSaved(p,identity))} onNavigateMode={mode=>move(mode as Screen)} onChooseSource={article=>setJourneySource(topicSource(article))} onDefer={(key,days)=>setProgress((p:any)=>deferReview(p,key,days))}/>}
+        {screen==='linklab'&&<LinkLab initialTopic={linkLabTopic} initialReview={linkLabReview} focusArticle={modeFocus?.mode==='linklab'?modeFocus.article:null} onComplete={entry=>setProgress((p:any)=>recordLinkLab(p,entry))}/>}
         {screen==='missions'&&<Missions progress={progress} onNavigate={mode=>move(mode as Screen)}/>}
         {screen==='arena'&&<Arena onComplete={attempt=>setProgress((p:any)=>recordArenaAttempt(p,attempt))} attempts={progress.arenaAttempts||[]} dailyManifest={progress.daily?.arena} onDailyManifest={entry=>setProgress((p:any)=>({...p,daily:{...p.daily,arena:entry}}))}/>}
         {screen==='library'&&<section>

@@ -378,6 +378,31 @@ try{
    await page.locator('.study-review').filter({hasText:'original-language passage'}).first().getByRole('button',{name:/Open original game/}).click();
    await page.getByRole('heading',{name:/WikiPolyglot/}).waitFor();
    assert.deepEqual(issues,[],mode+' browser JavaScript exceptions');
+
+   // W02: source-specific, cross-mode journey from actual Wikipedia revision to original engines.
+   await nav('Discover');
+   await page.locator('#wiki-search').fill('Marie Curie');
+   await page.locator('.search-results button').filter({hasText:'Marie Curie'}).first().click();
+   await page.locator('.topic-journey h2').getByText('Marie Curie').waitFor();
+   await page.locator('.topic-journey-actions').getByRole('button',{name:/Knowledge Galaxy/}).click();
+   await page.locator('.exp-source-focus').getByText(/page 900/).waitFor();
+   await page.getByText('WIKIDATA ENTITY Q10001').waitFor();
+   await page.locator('.topic-journey-actions').getByRole('button',{name:/GeoWiki/}).click();
+   await page.locator('.exp-source-focus').getByText(/No qualifying P625 coordinate/).waitFor();
+   await page.locator('.topic-journey-actions').getByRole('button',{name:/WikiChronicle/}).click();
+   await page.locator('.exp-source-focus').getByText(/Recorded born year/).waitFor();
+   await page.locator('.topic-journey-actions').getByRole('button',{name:/WikiPolyglot/}).click();
+   await page.locator('.learn-source-bar').getByText(/Q10001/).waitFor();
+   await page.locator('.topic-journey-actions').getByRole('button',{name:/Link Lab/}).click();
+   await page.locator('.linklab-panel').getByText(/pinned English revision 909/).waitFor();
+   await page.getByRole('button',{name:/Generate sourced question/}).click();
+   await page.locator('.linklab-sources').getByText(/PAGE 900/).waitFor();
+   await page.locator('.topic-journey-actions').getByRole('button',{name:/WikiRace/}).click();
+   await page.locator('.scoreboard').getByText('Marie Curie').waitFor();
+   await page.locator('.topic-journey-actions').getByRole('button',{name:/Study Desk/}).click();
+   await page.locator('.study-panel').getByRole('heading',{name:'Marie Curie'}).waitFor();
+   await page.locator('.topic-journey-links').getByRole('button',{name:/Reopen exact revision/}).click();
+   await page.locator('.reader-toolbar').getByRole('heading',{name:'Marie Curie'}).waitFor();
    console.log('PASS Chromium '+mode+': race→Link Lab→mystery→Galaxy→GeoWiki→Chronicle→Polyglot→Detective→Pulse→Capsule window→Trail Arena share/room/daily→Galaxy statements→missions→Study Desk source journal/review→local backup merge/replace/reload→source history');
    await context.close();
  }
