@@ -29,6 +29,9 @@ function entity(qid){
 const articles={Mathematics:{pageid:1,revid:111,links:['Physics']},Physics:{pageid:2,revid:222,links:['History']},History:{pageid:3,revid:333,links:['Mathematics']}};
 const sourceStarters=['Marie Curie','Albert Einstein','Ada Lovelace','Moon','France','Charles Darwin','Ancient Rome'];
 for(let i=0;i<sourceStarters.length;i++)articles[sourceStarters[i]]={pageid:900+i,revid:909+i,links:['Physics','Biology','Economics','Literature']};
+// Controlled original-source fixture: one genuine alternative link and three independently sourced contrast decoys.
+articles['Albert Einstein'].links=['Physics','Theory of relativity'];
+articles['Theory of relativity']={pageid:820,revid:1820,links:['History']};
 // Every pinned source must have a unique page/revision identity, including rotated daily-date candidates.
 for(const [name,pageid,revid] of [['Biology',811,1811],['Economics',812,1812],['Literature',813,1813]])articles[name]={pageid,revid,links:['Physics','History']};
 
