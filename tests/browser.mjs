@@ -171,6 +171,7 @@ try{
    await page.getByRole('button',{name:/Leave mystery/}).click();
    await page.locator('#mystery-level').selectOption('expert');
    await page.getByRole('button',{name:/Start mystery/}).click();
+   await page.locator('.clues>div').first().waitFor();
    assert.equal(await page.locator('.clues>div').count(),1);
    assert.equal(await page.getByRole('button',{name:/Reveal next clue/}).isDisabled(),true);
    await nav('Knowledge Galaxy');await page.getByText('Source relationships').waitFor();
