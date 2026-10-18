@@ -30,10 +30,10 @@ export default function Exploration({mode,focusArticle,onRead,onComplete,onKnowl
    }catch(e:any){if(active)setError(e.message||'Source unavailable');}finally{if(active)setBusy('');}}
    void load();return()=>{active=false;};
  },[mode,focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);
- useEffect(()=>{let active=true;setFocusEvidence(null);setFocusError('');if(!focusArticle)return;
+ useEffect(()=>{let active=true;setFocusEvidence(null);setFocusError('');const selectedSource=focusArticle;if(!selectedSource)return;
    async function inspect(){try{
-     const evidence=await topicWikidataEvidence(focusArticle);if(!active)return;setFocusEvidence(evidence);
-     if(mode==='galaxy'){const graph=await galaxyForQid(evidence.qid);if(active){setGalaxy(graph);setTopic(focusArticle.title);setFilter('all');setTrail([]);setRelationRound(0);setRelationChoice(null);}}
+     const evidence=await topicWikidataEvidence(selectedSource);if(!active)return;setFocusEvidence(evidence);
+     if(mode==='galaxy'){const graph=await galaxyForQid(evidence.qid);if(active){setGalaxy(graph);setTopic(selectedSource.title);setFilter('all');setTrail([]);setRelationRound(0);setRelationChoice(null);}}
    }catch(e:any){if(active)setFocusError(e.message||'No evidence for this source');}}
    void inspect();return()=>{active=false;};
  },[mode,focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);

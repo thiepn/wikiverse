@@ -3,6 +3,7 @@ import {STARTERS,hashSeed,normalizeTitle,isArticleTitle} from '../domain/game.mj
 import {buildLinkAudit,buildCommonLinkAudit} from '../domain/linklab.mjs';
 import {checkedArticle} from '../domain/study.mjs';
 /** Bounded attempts; only real titles and original page/revision identities. */
+/** @param {{start?:string,seed?:string,sourceArticle?:any}} [options] */
 export async function createLinkAudit({start='Mathematics',seed='linklab_1',sourceArticle=null}={}){
  if(typeof seed!=='string'||seed.length<2||seed.length>80||!isArticleTitle(start)||start.trim().length>190)throw new Error('Choose a valid Wikipedia article title and seed');
  const pinned=sourceArticle?checkedArticle(sourceArticle):null;
