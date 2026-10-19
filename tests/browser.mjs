@@ -434,7 +434,11 @@ try{
    await nav('Study Desk');
    await page.getByRole('button',{name:/Reading journey/}).click();
    await page.getByText(/From Mathematics → Physics/).waitFor();
-   await nav('My Universe');await page.getByText(/Located Berlin/).waitFor();
+   await nav('My Universe');await page.getByRole('heading',{name:/My Universe/}).waitFor();
+   // W06 adds another genuine history result; the recent-activity list is capped at 12.
+   // Check the original local v1 writer instead of assuming an older result stays visible.
+   const geoStored=await page.evaluate(()=>JSON.parse(localStorage.getItem('wikiverse:progress:v1')||'{}').exploration||[]);
+   assert.ok(geoStored.some(x=>x.mode==='geo'&&x.title==='Located Berlin'&&x.source.endsWith('#P625')),'Original GeoWiki source-graded result must survive new Chronicle activity');
    await page.getByText(/radioactivité/).waitFor();
    await page.getByText(/not been independently inspected/).waitFor();
    await nav('Backup & Recovery');
