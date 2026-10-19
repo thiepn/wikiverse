@@ -80,6 +80,43 @@ export function citationQuestion(records,index=0){
  return {id:target.article.language+':'+target.article.pageId+':'+target.article.revisionId+':'+target.id,source:target.sourceRevision,kind:'citation-identity',prompt:target.context,choices:opts.map(r=>({id:r.id,label:r.label,links:r.links})),answerId:target.id,article:target.article};
 }
 export function gradeCitation(question,choiceId){return question?.kind==='citation-identity'&&question.choices.some(c=>c.id===choiceId)&&question.answerId===choiceId;}
+/** W08 original bibliographic records only: search title, citation ID, passage and linked URLs.
+ * This is a literal index over records from the existing Wikipedia citation parser,
+ * not a claim of external-source support or a new storage/index authority. */
+export function searchableCitations(records,query=''){
+ const term=String(query||'').normalize('NFC').trim().toLocaleLowerCase().slice(0,120);
+ const seen=new Set();
+ return (Array.isArray(records)?records:[]).filter(record=>{
+  const id=record?.id,article=record?.article;
+  if(typeof id!=='string'||!/^cite_note[-\\w:.]{1,90}$/.test(id)||seen.has(id)||!article?.revisionId||!record.sourceRevision||!Array.isArray(record.links))return false;
+  seen.add(id);
+  if(!term)return true;
+  return [id,record.label,record.context,...record.links].some(value=>String(value||'').normalize('NFC').toLocaleLowerCase().includes(term));
+ });
+}
+/** Compare original excerpts and exact external URL overlap; never infer semantic
+ * equivalence, factual corroboration, independence, or evidence quality. */
+export function citationComparison(records,ids){
+ if(!Array.isArray(ids)||ids.length<2||ids.length>3||new Set(ids).size!==ids.length)throw new Error('Choose two or three distinct original citations');
+ const source=searchableCitations(records);
+ const chosen=ids.map(id=>source.find(x=>x.id===id));
+ if(chosen.some(x=>!x))throw new Error('A selected citation is no longer available in this original revision');
+ const first=chosen[0].article;
+ if(chosen.some(x=>x.article?.language!==first.language||x.article?.pageId!==first.pageId||x.article?.revisionId!==first.revisionId))throw new Error('Do not compare citations from unrelated revisions');
+ const links=chosen.map(x=>new Set(x.links));
+ const sharedUrls=[...links[0]].filter(url=>links.every(group=>group.has(url)));
+ return {article:{language:first.language,pageId:first.pageId,revisionId:first.revisionId,title:first.title},citations:chosen.map((x,i)=>({
+   id:x.id,label:x.label,context:x.context,links:[...x.links],sourceRevision:x.sourceRevision,
+   uniqueUrls:x.links.filter(url=>links.some((set,j)=>i!==j&&!set.has(url)))
+  })),
+  sharedUrls,identicalPassages:chosen.every(x=>x.context===chosen[0].context),kind:'literal-original-citation-comparison',graded:false};
+}
+/** Move through the original unique citation order without guessing missing IDs. */
+export function adjacentCitation(records,currentId,delta){
+ if(delta!==1&&delta!==-1)throw new Error('Unsupported original citation navigation');
+ const rows=searchableCitations(records),i=rows.findIndex(x=>x.id===currentId);
+ return i<0?null:rows[i+delta]||null;
+}
 export function evidenceReflection({citation,verdict,note}){
  if(!citation?.sourceRevision||!['supports','contradicts','insufficient','unreviewed'].includes(verdict))throw new Error('Select a valid evidence assessment');
  const content=String(note||'').trim();
