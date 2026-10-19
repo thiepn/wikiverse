@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {galaxyForTitle,galaxyForQid,loadGeoCatalog,loadChronicle,topicWikidataEvidence,verifiedGalaxyWikipedia,geoPlaceRelations} from '../services/exploration.mjs';
+import {galaxyForTitle,galaxyForQid,loadGeoCatalog,loadChronicle,loadChronicleStatements,topicWikidataEvidence,verifiedGalaxyWikipedia,geoPlaceRelations} from '../services/exploration.mjs';
 import {searchArticles} from '../services/wikimedia.mjs';
-import {mapPoint,geoProject,geoPlacesInView,geoView,GEO_VIEWS,geoNearPlaces,geoLatitudeChallenge,chronologicalOrder,shuffleDeterministic,isCorrectOrder,changeOrder,GALAXY_FACETS,galaxyVisibleEdges,galaxyPropertyCounts,galaxyTrailAppend} from '../domain/exploration.mjs';
+import {mapPoint,geoProject,geoPlacesInView,geoView,GEO_VIEWS,geoNearPlaces,geoLatitudeChallenge,chronologicalOrder,shuffleDeterministic,isCorrectOrder,changeOrder,CHRONICLE_PROPERTIES,chronicleVisible,chroniclePropertyCounts,chronicleExtremeChallenge,GALAXY_FACETS,galaxyVisibleEdges,galaxyPropertyCounts,galaxyTrailAppend} from '../domain/exploration.mjs';
 import {sourceRelationQuestion,gradeRelationQuestion,knowledgeResult} from '../domain/knowledge.mjs';
 import './exploration.css';
 type Mode='galaxy'|'geo'|'chronicle';
@@ -12,6 +12,7 @@ type Galaxy={root:{id:string;title:string;description:string;sourceUrl:string};e
 type Place={qid:string;title:string;articleTitle:string;latitude:number;longitude:number;sourceUrl:string;precision?:number|null;entityUrl?:string};
 type GeoRelation={from:string;to:string;label:string;property:string;sourceUrl:string;title:string};
 type Fact={qid:string;title:string;articleTitle:string;year:number;type:string;sourceUrl:string;property:string};
+type ChronoRecord={id:string;qid:string;title:string;articleTitle?:string;year:number;type:string;property:string;sourceUrl:string;precision:number;month:number|null;day:number|null;claimId:string|null;calendar:string};
 type Result={mode:Mode;title:string;score:number;at:string;source:string};
 export default function Exploration({mode,focusArticle,initialQid,onExploreQid,onRead,onReadSource,onComplete,onKnowledge}:{mode:Mode;focusArticle?:Article|null;initialQid?:string|null;onExploreQid?:(qid:string)=>void;onRead:(title:string)=>void;onReadSource:(article:Article)=>void;onComplete:(result:Result)=>void;onKnowledge:(result:any)=>void}){
  const [busy,setBusy]=useState('');const [error,setError]=useState('');
@@ -22,8 +23,15 @@ export default function Exploration({mode,focusArticle,initialQid,onExploreQid,o
  const [geoViewId,setGeoViewId]=useState('world'),[geoSearch,setGeoSearch]=useState(''),[geoKind,setGeoKind]=useState<'locate'|'latitude'>('locate'),[geoDirection,setGeoDirection]=useState<'north'|'south'>('north'),[geoDensity,setGeoDensity]=useState<3|4>(3);
  const [geoRelations,setGeoRelations]=useState<GeoRelation[]>([]),[geoRelationError,setGeoRelationError]=useState(''),[geoRelationBusy,setGeoRelationBusy]=useState(false);
  const [facts,setFacts]=useState<Fact[]>([]);const [ordered,setOrdered]=useState<Fact[]>([]);const [chronoQuiz,setChronoQuiz]=useState(false);const [chronoAnswer,setChronoAnswer]=useState<boolean|null>(null);
+ const [chronoRecords,setChronoRecords]=useState<ChronoRecord[]>([]),[chronoProperty,setChronoProperty]=useState('all'),[chronoSearch,setChronoSearch]=useState(''),[chronoFrom,setChronoFrom]=useState(''),[chronoTo,setChronoTo]=useState(''),[chronoSelected,setChronoSelected]=useState<string|null>(null);
+ const [chronoExtreme,setChronoExtreme]=useState(false),[chronoDirection,setChronoDirection]=useState<'earliest'|'latest'>('earliest'),[chronoCount,setChronoCount]=useState<3|4>(3),[chronoRound,setChronoRound]=useState(0),[chronoExtremeChoice,setChronoExtremeChoice]=useState<string|null>(null);
  const [relationRound,setRelationRound]=useState(0),[relationChoice,setRelationChoice]=useState<string|null>(null);
  const relationQuiz=useMemo(()=>sourceRelationQuestion(galaxy,relationRound),[galaxy,relationRound]);
+ const visibleChrono=useMemo(()=>chronicleVisible(chronoRecords,{property:chronoProperty,query:chronoSearch,fromYear:chronoFrom&&Number(chronoFrom)>=1?Number(chronoFrom):null,toYear:chronoTo&&Number(chronoTo)>=1?Number(chronoTo):null}) as ChronoRecord[],[chronoRecords,chronoProperty,chronoSearch,chronoFrom,chronoTo]);
+ const sourceTopicDates=useMemo(()=>mode==='chronicle'&&Array.isArray(focusEvidence?.dates)?chronicleVisible(focusEvidence.dates) as ChronoRecord[]:[],[mode,focusEvidence]);
+ const chosenChrono=visibleChrono.find(x=>x.id===chronoSelected)||visibleChrono[0]||null;
+ const chronoExtremeQuestion=useMemo(()=>{try{return chronicleExtremeChallenge(visibleChrono,'wikiverse-w06:'+chronoRound+':'+chronoDirection+':'+chronoCount,{direction:chronoDirection,count:chronoCount});}catch{return null;}},[visibleChrono,chronoRound,chronoDirection,chronoCount]);
+ const extremeOutcome=chronoExtremeQuestion&&chronoExtremeChoice!==null?chronoExtremeChoice===chronoExtremeQuestion.answer.id:null;
  const topicCoordinate=useMemo(()=>mode==='geo'&&focusEvidence?.coordinate&&focusArticle?{...focusEvidence.coordinate,title:focusArticle.title,articleTitle:focusArticle.title}:null,[mode,focusEvidence,focusArticle]);
  const visibleAtlas=useMemo(()=>geoPlacesInView([...places,...(topicCoordinate?[topicCoordinate]:[])],geoViewId,geoSearch) as Place[],[places,topicCoordinate,geoViewId,geoSearch]);
  const visibleGamePlaces=useMemo(()=>geoPlacesInView(places,geoViewId,geoSearch) as Place[],[places,geoViewId,geoSearch]);
@@ -40,7 +48,7 @@ export default function Exploration({mode,focusArticle,initialQid,onExploreQid,o
    async function load(){setBusy('Retrieving source-backed knowledge…');try{
      if(mode==='galaxy'&&!focusArticle){const g=initialQid?await galaxyForQid(initialQid):await galaxyForTitle('Marie Curie');if(active)setGalaxy(g);}
      if(mode==='geo'){const g=await loadGeoCatalog();if(active){setPlaces(g);setPlace(g[0]);}}
-     if(mode==='chronicle'){const c=await loadChronicle();if(active){setFacts(c);setOrdered(shuffleDeterministic(c.slice(0,5),String(Date.now())));}}
+     if(mode==='chronicle'){const [c,records]=await Promise.all([loadChronicle(),loadChronicleStatements()]);if(active){setFacts(c);setChronoRecords(records as ChronoRecord[]);setOrdered(shuffleDeterministic(c.slice(0,5),String(Date.now())));}}
    }catch(e:any){if(active)setError(e.message||'Source unavailable');}finally{if(active)setBusy('');}}
    void load();return()=>{active=false;};
  },[mode,initialQid,focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);
@@ -87,8 +95,14 @@ export default function Exploration({mode,focusArticle,initialQid,onExploreQid,o
  }
  function startGeo(kind:'locate'|'latitude'){setGeoKind(kind);setGeoQuiz(true);setRound(0);setGeoAnswer(null);setPlace(null);}
  function advanceGeo(){setRound(x=>x+1);setGeoAnswer(null);setPlace(null);}
- function chronoStart(){setChronoQuiz(true);setChronoAnswer(null);setOrdered(shuffleDeterministic(facts.slice(0,Math.min(facts.length,6)),String(Date.now())));}
+ function chronoStart(){setChronoQuiz(true);setChronoExtreme(false);setChronoAnswer(null);setOrdered(shuffleDeterministic(facts.slice(0,Math.min(facts.length,6)),String(Date.now())));}
  function chronoCheck(){const correct=isCorrectOrder(ordered);setChronoAnswer(correct);if(correct)onComplete({mode:'chronicle',title:'Ordered '+ordered.length+' historical records',score:ordered.length*20,at:new Date().toISOString(),source:'https://www.wikidata.org/'});}
+ function startExtreme(){setChronoQuiz(false);setChronoExtreme(true);setChronoExtremeChoice(null);setChronoRound(n=>n+1);}
+ function chooseExtreme(row:ChronoRecord){if(!chronoExtremeQuestion||chronoExtremeChoice!==null||!chronoExtremeQuestion.options.some(x=>x.id===row.id))return;setChronoExtremeChoice(row.id);
+   if(row.id===chronoExtremeQuestion.answer.id)onComplete({mode:'chronicle',title:'Original Wikidata '+chronoDirection+' year comparison',score:100,at:new Date().toISOString(),source:chronoExtremeQuestion.answer.sourceUrl});
+ }
+ function nextExtreme(){setChronoExtremeChoice(null);setChronoRound(n=>n+1);}
+ function chronoEvidenceDate(record:ChronoRecord){return record.year+(record.precision>=10&&record.month!==null?'-'+String(record.month).padStart(2,'0'):'')+(record.precision>=11&&record.day!==null?'-'+String(record.day).padStart(2,'0'):'');}
  return <section className="exp">
    <div className="mode-head"><div className="eyebrow">{mode==='galaxy'?'05 / WIKIDATA NETWORK':mode==='geo'?'06 / GEOGRAPHICAL DISCOVERY':'07 / CHRONOLOGY & EVIDENCE'}</div><h1>{mode==='galaxy'?'Knowledge Galaxy':mode==='geo'?'GeoWiki':'WikiChronicle'}<span className="accent">.</span></h1><p>{mode==='galaxy'?'Expand genuine Wikidata statements and follow inspectable entity relationships.':mode==='geo'?'Find real coordinates and solve a global location challenge.':'Browse source-verified historical dates and solve chronological ordering puzzles.'}</p></div>
    {focusArticle&&<aside className="exp-source-focus" aria-label="Original topic evidence">

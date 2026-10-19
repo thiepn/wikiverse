@@ -13,7 +13,7 @@ export async function topicWikidataEvidence(input){
  if(!qid)throw new Error('No current Wikidata sitelink for the selected article');
  const entity=(await loadEntities([qid]))[qid];
  if(!entity||entity.missing||entity.id!==qid)throw new Error('Linked Wikidata item unavailable');
- return {article:source,qid,entityUrl:`https://www.wikidata.org/wiki/${qid}`,coordinate:coordinate(entity),dated:chronologicalFact(entity)};
+ return {article:source,qid,entityUrl:`https://www.wikidata.org/wiki/${qid}`,coordinate:coordinate(entity),dated:chronologicalFact(entity),dates:chronicleStatements(entity)};
 }
 
 async function resolveTopic(title){const id=await pageEntityId(title);return id ? {title,id} : null;}
