@@ -215,6 +215,32 @@ try{
    await page.locator('#geo-direction').selectOption('south');
    await page.locator('.exp-geo-lat-options button').first().waitFor();
    await nav('WikiChronicle');await page.getByText('Source-verified chronology').waitFor();
+   // W06: the browser reads each actual time claim with its original property/QID,
+   // then traverses safely into the existing original Galaxy engine.
+   await page.locator('.exp-chrono-row').first().waitFor();
+   assert.ok((await page.locator('.exp-chrono-row').count())>=4,'Original timeline must contain independently sourced dates');
+   await page.locator('.exp-chrono-properties').getByRole('button',{name:/Born.*P569/}).click();
+   await page.locator('#chrono-search').fill('Marie Curie');
+   await page.waitForFunction(()=>document.querySelectorAll('.exp-chrono-row').length===1);
+   await page.locator('.exp-chrono-row button').first().press('Enter');
+   await page.locator('.exp-chrono-inspector').getByText(/precision 11/).waitFor();
+   await page.locator('.exp-chrono-inspector').getByRole('button',{name:/Investigate QID in Galaxy/}).click();
+   await page.getByText('WIKIDATA ENTITY Q10001').waitFor();
+   await nav('WikiChronicle');await page.getByText('Source-verified chronology').waitFor();
+   await page.locator('#chrono-from').fill('1900');
+   await page.locator('#chrono-to').fill('1950');
+   await page.waitForFunction(()=>document.querySelectorAll('.exp-chrono-row').length>0);
+   assert.ok((await page.locator('.exp-chrono-row').count())<14,'CE year range excludes original out-of-range claims');
+   await page.getByRole('button',{name:'Reset timeline filters'}).click();
+   await page.getByRole('button',{name:'Compare years'}).click();
+   await page.locator('#chrono-count').selectOption('4');
+   await page.waitForFunction(()=>document.querySelectorAll('.exp-chrono-choice-grid button').length===4);
+   await page.locator('.exp-chrono-choice-grid button').first().click();
+   await page.locator('.exp-chrono-answer a').first().waitFor();
+   assert.equal(await page.locator('.exp-chrono-answer a').count(),4,'Every comparison has a separate original P-date citation');
+   await page.getByRole('button',{name:/Compare another original set/}).click();
+   await page.locator('#chrono-direction').selectOption('latest');
+   await page.locator('.exp-chrono-choice-grid button').first().waitFor();
    await page.getByRole('button',{name:'Order challenge'}).click();
    await page.getByRole('button',{name:/Check order/}).click();await page.getByText(/Not quite/).waitFor();
    await page.getByRole('button',{name:/Reshuffle/}).click();
@@ -494,6 +520,7 @@ try{
    await page.locator('.topic-journey-actions').getByRole('button',{name:/GeoWiki/}).click();
    await page.locator('.exp-source-focus').getByText(/No qualifying P625 coordinate/).waitFor();
    await page.locator('.topic-journey-actions').getByRole('button',{name:/WikiChronicle/}).click();
+   await page.locator('.exp-chrono-focus-list').getByText(/Original Q10002/).waitFor();
    await page.locator('.exp-source-focus').getByText(/Recorded born year/).waitFor();
    await page.locator('.topic-journey-actions').getByRole('button',{name:/WikiPolyglot/}).click();
    await page.locator('.learn-source-bar').getByText(/Q10002/).waitFor();
