@@ -304,6 +304,32 @@ try{
    await page.locator('.learn-choices button').first().click();
    await page.locator('.learn-feedback').first().waitFor();
    await nav('Source Detective');
+   await page.locator('.learn-citation-index article').first().waitFor();
+   // W08: three authentic source citations, literal filtering, independent evidence
+   // comparison, original revision anchors and existing private assessment writer.
+   assert.equal(await page.locator('.learn-citation-index article').count(),3);
+   await page.locator('#research-search').fill('Research publication 2');
+   await page.waitForFunction(()=>document.querySelectorAll('.learn-citation-index article').length===1);
+   await page.locator('#research-search').fill('');
+   await page.locator('.learn-citation-index article').nth(0).getByRole('button',{name:'Compare this citation'}).click();
+   await page.locator('.learn-citation-index article').nth(1).getByRole('button',{name:'Compare this citation'}).click();
+   await page.getByRole('button',{name:/Compare citations \(2\)/}).click();
+   assert.equal(await page.locator('.learn-comparison-grid article').count(),2);
+   assert.equal(await page.locator('.learn-comparison-grid a[href*="oldid=909"]').count(),2);
+   await page.locator('.learn-comparison-grid').getByRole('button',{name:/Evaluate citation/}).first().click();
+   await page.waitForFunction(()=>document.querySelector('#citation-select')?.value==='cite_note-ref1');
+   await page.locator('.learn-citation-detail').getByRole('button',{name:'Save cited passage'}).click();
+   await page.getByText('Original cited passage saved to Study Desk.').waitFor();
+   await page.getByRole('button',{name:'Next original citation'}).click();
+   await page.locator('.learn-citation-detail').getByText(/Research publication 2/).first().waitFor();
+   await page.getByRole('button',{name:'Previous original citation'}).click();
+   await page.getByRole('button',{name:/Read original in Discover/}).click();
+   await page.locator('.reader-toolbar h2').getByText('Marie Curie').waitFor();
+   await nav('Source Detective');
+   await page.locator('.learn-citation-index article').first().waitFor();
+   await page.getByRole('button',{name:/Open source in Study Desk/}).click();
+   await page.getByRole('heading',{name:'Study Desk'}).waitFor();
+   await nav('Source Detective');
    await page.locator('.learn-citation-choices button').first().waitFor();
    await page.locator('.learn-citation-choices button').first().click();
    await page.locator('.learn-feedback').first().waitFor();

@@ -88,7 +88,7 @@ export function searchableCitations(records,query=''){
  const seen=new Set();
  return (Array.isArray(records)?records:[]).filter(record=>{
   const id=record?.id,article=record?.article;
-  if(typeof id!=='string'||!/^cite_note[-\\w:.]{1,90}$/.test(id)||seen.has(id)||!article?.revisionId||!record.sourceRevision||!Array.isArray(record.links))return false;
+  if(typeof id!=='string'||!/^cite_note[-\w:.]{1,90}$/.test(id)||seen.has(id)||!article?.revisionId||!record.sourceRevision||!Array.isArray(record.links))return false;
   seen.add(id);
   if(!term)return true;
   return [id,record.label,record.context,...record.links].some(value=>String(value||'').normalize('NFC').toLocaleLowerCase().includes(term));
@@ -107,7 +107,7 @@ export function citationComparison(records,ids){
  const sharedUrls=[...links[0]].filter(url=>links.every(group=>group.has(url)));
  return {article:{language:first.language,pageId:first.pageId,revisionId:first.revisionId,title:first.title},citations:chosen.map((x,i)=>({
    id:x.id,label:x.label,context:x.context,links:[...x.links],sourceRevision:x.sourceRevision,
-   uniqueUrls:x.links.filter(url=>links.some((set,j)=>i!==j&&!set.has(url)))
+   uniqueUrls:x.links.filter(url=>links.every((set,j)=>i===j||!set.has(url)))
   })),
   sharedUrls,identicalPassages:chosen.every(x=>x.context===chosen[0].context),kind:'literal-original-citation-comparison',graded:false};
 }
