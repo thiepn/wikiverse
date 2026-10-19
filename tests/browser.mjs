@@ -262,6 +262,25 @@ try{
    await page.getByRole('button',{name:/Reshuffle/}).click();
    await nav('WikiPolyglot');
    await page.locator('.learn-pane.shown').waitFor();
+   // W07 uses independently source-verified editions and actual original passages.
+   await page.locator('.learn-edition-options button').first().waitFor();
+   assert.equal(await page.locator('.learn-passage-edition').count(),2);
+   assert.ok((await page.locator('.learn-passage-edition[lang="fr"] .learn-passage-list article').count())>0);
+   await page.locator('#learn-passage-query').fill('radioactivité');
+   await page.waitForFunction(()=>document.querySelectorAll('.learn-passage-edition[lang="fr"] .learn-passage-list article').length===1);
+   assert.equal(await page.locator('.learn-passage-edition[lang="en"] .learn-passage-list article').count(),0,'Independent English article is not treated as translated French text');
+   await page.locator('.learn-passage-edition[lang="fr"]').getByRole('button',{name:/Practice exact words/}).first().click();
+   await page.locator('.learn-question[lang="fr"]').waitFor();
+   await page.locator('.learn-choices button').first().click();
+   await page.locator('.learn-feedback a').first().waitFor();
+   await page.locator('.learn-passage-edition[lang="fr"]').getByRole('button',{name:'Save excerpt'}).first().click();
+   await page.getByText(/Original FR excerpt saved locally/).waitFor();
+   await page.locator('#learn-passage-query').fill('');
+   await page.locator('.learn-edition-options').getByRole('button',{name:'Deutsch'}).click();
+   await page.locator('.learn-passage-edition[lang="de"]').waitFor();
+   await page.locator('.learn-source-bar').getByText(/Q10001/).waitFor();
+   await page.locator('.learn-edition-options').getByRole('button',{name:'Français'}).click();
+   await page.locator('.learn-passage-edition[lang="fr"]').waitFor();
    await page.getByRole('textbox',{name:'Captured phrase'}).fill('radioactivité');
    await page.getByRole('textbox',{name:'Your meaning'}).fill('radioactivity');
    await page.getByRole('button',{name:/Save to My Universe/}).click();
@@ -544,6 +563,9 @@ try{
    await page.locator('.exp-source-focus').getByText(/Recorded born year/).waitFor();
    await page.locator('.topic-journey-actions').getByRole('button',{name:/WikiPolyglot/}).click();
    await page.locator('.learn-source-bar').getByText(/Q10002/).waitFor();
+   // W02 handoff must keep the exact selected EN article rather than a different current revision.
+   assert.ok((await page.locator('.learn-pane[lang="en"] .learn-pane-head a').getAttribute('href'))?.includes('oldid=910'));
+   await page.locator('.learn-passage-edition[lang="en"]').getByText(/Albert Einstein/).first().waitFor();
    await page.locator('.topic-journey-actions').getByRole('button',{name:/Link Lab/}).click();
    await page.locator('.linklab-panel').getByText(/pinned English revision 910/).waitFor();
    await page.getByRole('button',{name:/Generate sourced question/}).click();

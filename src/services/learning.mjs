@@ -3,12 +3,14 @@ import {pairedSitelinks,originalEditionOptions,normalizeCitationRecord,citationQ
 const DATA='https://www.wikidata.org/w/api.php';
 /** Keep the original QID and optional exact pinned user article through edition switches.
  * A different current language edition may change, but never inherits the source's revision. */
+/** @param {string} title @param {string} [secondary] @param {string} [origin] @param {{language:string,pageId:number,revisionId:number,title:string}|null} [pinnedArticle] */
 export async function loadLanguagePair(title,secondary='fr',origin='en',pinnedArticle=null){
  if(!supportedLanguage(origin))throw new Error('Unsupported origin language');
  const qid=await pageEntityId(title,origin);
  if(!qid)throw new Error('No Wikidata identity exists for the selected topic');
  return loadLanguagePairByQid(qid,secondary,pinnedArticle);
 }
+/** @param {string} qid @param {string} [secondary] @param {{language:string,pageId:number,revisionId:number,title:string}|null} [pinnedArticle] */
 export async function loadLanguagePairByQid(qid,secondary='fr',pinnedArticle=null){
  if(!/^Q[1-9]\d*$/.test(qid||'')||!supportedLanguage(secondary)||secondary==='en')throw new Error('Unsupported original Wikipedia edition');
  const sites=['en','fr','de','ko','tr'].map(x=>x+'wiki').join('|');
