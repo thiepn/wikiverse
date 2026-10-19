@@ -171,6 +171,7 @@ export function chronicleStatements(entity){
 }
 /** Filters are over original evidence only: date ranges are inclusive CE years.
  * Year/century labels are a UI grouping, not more precise claims. */
+/** @param {any[]} records @param {{property?:string,query?:string,fromYear?:number|null,toYear?:number|null}} [options] */
 export function chronicleVisible(records,{property='all',query='',fromYear=null,toYear=null}={}){
  const term=String(query||'').trim().toLocaleLowerCase('en').slice(0,120);
  return (Array.isArray(records)?records:[]).filter(row=>{
