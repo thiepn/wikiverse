@@ -47,7 +47,7 @@ export default function HistoryExplorer({mode,focusArticle,onRead,onReadSource,o
  const inspectedDay=useMemo(()=>daily.length?pulseDayEvidence(series,daily.some(row=>row.date===selectedDay)?selectedDay:(daily.at(-1)?.date||'')):null,[series,daily,selectedDay]);
  const periodReport=useMemo(()=>daily.length>=14?pulsePeriodComparison(series,comparePeriod):null,[series,comparePeriod,daily]);
  const change=useMemo(()=>diff?changeChallenge(diff,String(revisionRound)):null,[diff,revisionRound]);
- const archiveRows=useMemo(()=>selectArchiveRevisions(history,{query:archiveQuery,fromDate:archiveStart,toDate:archiveEnd}),[history,archiveQuery,archiveStart,archiveEnd]);
+ const archiveRows=useMemo(()=>selectArchiveRevisions(history,{query:archiveQuery,fromDate:archiveStart,toDate:archiveEnd}) as Revision[],[history,archiveQuery,archiveStart,archiveEnd]);
  const evidenceRows=useMemo(()=>diff?.evidence?{before:diff.evidence.before.filter(row=>evidenceFilter==='all'||(evidenceFilter==='shared')===(row.status==='present-in-both')),after:diff.evidence.after.filter(row=>evidenceFilter==='all'||(evidenceFilter==='shared')===(row.status==='present-in-both'))}:null,[diff,evidenceFilter]);
  async function loadPulse(updatedTitles=titles,nextDays=days,nextLanguage=language){
   const stamp=++operation.current;++revisionOperation.current;setPulseRevision(null);setPulseRevisionError('');setBusy('Retrieving actual Wikimedia pageviews…');setError('');setPulseAnswer(null);
