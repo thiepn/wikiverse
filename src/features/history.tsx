@@ -1,13 +1,15 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {loadPageviews,loadRevisionList,loadRevisionWindow,compareRevisions} from '../services/history.mjs';
-import {pulseSummary,pulseQuiz,gradePulse,pulseCalendar,pulseObservedSegments,pulsePeriodComparison,pulseDayEvidence,changeChallenge,gradeChange,mergeRevisionPages} from '../domain/history.mjs';
+import {pulseSummary,pulseQuiz,gradePulse,pulseCalendar,pulseObservedSegments,pulsePeriodComparison,pulseDayEvidence,changeChallenge,gradeChange,mergeRevisionPages,selectArchiveRevisions} from '../domain/history.mjs';
 import './history.css';
 type Mode='pulse'|'capsule';
 type Point={date:string;views:number};
 type Series={title:string;language:string;points:Point[];start:string;end:string;source:string;total:number;observedDays:number};
 type Revision={revisionId:number;timestamp:string;size:number|null;comment:string;sourceUrl:string};
 type History={identity:{language:string;pageId:number;title:string};revisions:Revision[];historyUrl:string;nextCursor?:string|null;window?:{start:string;end:string;days:number}};
-type Comparison={from:{revisionId:number};to:{revisionId:number};earlier:Revision;later:Revision;added:string[];removed:string[];addedCount:number;removedCount:number;method:string;truncated:boolean};
+type SourceParagraph={id:string;position:number;text:string;status:'present-in-both'|'only-in-this-revision'};
+type Evidence={before:SourceParagraph[];after:SourceParagraph[];beforeTotal:number;afterTotal:number;beforeShown:number;afterShown:number;method:string;graded:boolean;sourceUrls:string[]};
+type Comparison={from:{revisionId:number};to:{revisionId:number};earlier:Revision;later:Revision;added:string[];removed:string[];addedCount:number;removedCount:number;method:string;truncated:boolean;evidence:Evidence};
 type Result={mode:Mode;kind:string;title:string;correct:boolean;score:number;at:string;source:string;sourceIds:string[]};
 type SourceArticle={language:string;pageId:number;revisionId:number;title:string};
 const initialTitles=['Marie Curie','Albert Einstein'];
@@ -27,15 +29,17 @@ function PulseChart({series,selectedDate,onSelectDate}:{series:Series[];selected
   </g>)}
  </svg><div className="history-legend">{series.map((s,i)=><span key={s.language+':'+s.title}><i style={{background:colors[i%3]}}/>{s.title}</span>)}</div></div>;
 }
-export default function HistoryExplorer({mode,focusArticle,onRead,onReadSource,onStudySource,onComplete}:{mode:Mode;focusArticle?:SourceArticle|null;onRead:(title:string,language?:string)=>void;onReadSource?:(article:SourceArticle)=>void;onStudySource?:(article:SourceArticle)=>void;onComplete:(r:Result)=>void}){
+export default function HistoryExplorer({mode,focusArticle,onRead,onReadSource,onStudySource,onCapsuleSource,onComplete}:{mode:Mode;focusArticle?:SourceArticle|null;onRead:(title:string,language?:string)=>void;onReadSource?:(article:SourceArticle)=>void;onStudySource?:(article:SourceArticle)=>void;onCapsuleSource?:(article:SourceArticle)=>void;onComplete:(r:Result)=>void}){
  const [busy,setBusy]=useState(''),[error,setError]=useState('');
  const [language,setLanguage]=useState(focusArticle?.language||'en'),[days,setDays]=useState(30),[titles,setTitles]=useState<string[]>(focusArticle?[focusArticle.title]:initialTitles),[newTitle,setNewTitle]=useState('');
  const [series,setSeries]=useState<Series[]>([]),[pulseAnswer,setPulseAnswer]=useState<string|null>(null),[pulseRound,setPulseRound]=useState(0),[tableOpen,setTableOpen]=useState(false);
  const [selectedDay,setSelectedDay]=useState(''),[comparePeriod,setComparePeriod]=useState<'halves'|'week'>('halves');
  const [pulseRevision,setPulseRevision]=useState<{sourceId:string;history:History}|null>(null),[pulseRevisionBusy,setPulseRevisionBusy]=useState(false),[pulseRevisionError,setPulseRevisionError]=useState('');
  const revisionOperation=useRef(0);
- const [topic,setTopic]=useState('Marie Curie'),[history,setHistory]=useState<History|null>(null),[older,setOlder]=useState<number|null>(null),[newer,setNewer]=useState<number|null>(null),[diff,setDiff]=useState<Comparison|null>(null),[revisionAnswer,setRevisionAnswer]=useState<string|null>(null),[revisionRound,setRevisionRound]=useState(0);
+ const [topic,setTopic]=useState(focusArticle?.title||'Marie Curie'),[history,setHistory]=useState<History|null>(null),[older,setOlder]=useState<number|null>(null),[newer,setNewer]=useState<number|null>(null),[diff,setDiff]=useState<Comparison|null>(null),[revisionAnswer,setRevisionAnswer]=useState<string|null>(null),[revisionRound,setRevisionRound]=useState(0);
  const [historyScope,setHistoryScope]=useState<'recent'|'window'>('recent');
+ const [archiveQuery,setArchiveQuery]=useState(''),[archiveStart,setArchiveStart]=useState(''),[archiveEnd,setArchiveEnd]=useState('');
+ const [evidenceFilter,setEvidenceFilter]=useState<'all'|'changed'|'shared'>('all'),[selectedEvidence,setSelectedEvidence]=useState<{side:'before'|'after';position:number}|null>(null);
  const [anchorDate,setAnchorDate]=useState(new Date().toISOString().slice(0,10)),[windowDays,setWindowDays]=useState(30);
  const operation=useRef(0);
  const quiz=useMemo(()=>pulseQuiz(series,pulseRound),[series,pulseRound]);
@@ -43,6 +47,8 @@ export default function HistoryExplorer({mode,focusArticle,onRead,onReadSource,o
  const inspectedDay=useMemo(()=>daily.length?pulseDayEvidence(series,daily.some(row=>row.date===selectedDay)?selectedDay:(daily.at(-1)?.date||'')):null,[series,daily,selectedDay]);
  const periodReport=useMemo(()=>daily.length>=14?pulsePeriodComparison(series,comparePeriod):null,[series,comparePeriod,daily]);
  const change=useMemo(()=>diff?changeChallenge(diff,String(revisionRound)):null,[diff,revisionRound]);
+ const archiveRows=useMemo(()=>selectArchiveRevisions(history,{query:archiveQuery,fromDate:archiveStart,toDate:archiveEnd}),[history,archiveQuery,archiveStart,archiveEnd]);
+ const evidenceRows=useMemo(()=>diff?.evidence?{before:diff.evidence.before.filter(row=>evidenceFilter==='all'||(evidenceFilter==='shared')===(row.status==='present-in-both')),after:diff.evidence.after.filter(row=>evidenceFilter==='all'||(evidenceFilter==='shared')===(row.status==='present-in-both'))}:null,[diff,evidenceFilter]);
  async function loadPulse(updatedTitles=titles,nextDays=days,nextLanguage=language){
   const stamp=++operation.current;++revisionOperation.current;setPulseRevision(null);setPulseRevisionError('');setBusy('Retrieving actual Wikimedia pageviews…');setError('');setPulseAnswer(null);
   try{
@@ -55,10 +61,10 @@ export default function HistoryExplorer({mode,focusArticle,onRead,onReadSource,o
   }catch(e:any){if(operation.current===stamp){setSeries([]);setError(e.message||'Wikimedia Analytics unavailable');}}
   finally{if(operation.current===stamp)setBusy('');}
  }
- async function fetchHistory(selected=topic,scope=historyScope,day=anchorDate,span=windowDays){
-  const stamp=++operation.current;setBusy('Loading historical revisions…');setError('');setDiff(null);setRevisionAnswer(null);
+ async function fetchHistory(selected=topic,scope=historyScope,day=anchorDate,span=windowDays,nextLanguage=focusArticle?.language||'en'){
+  const stamp=++operation.current;setBusy('Loading historical revisions…');setError('');setDiff(null);setRevisionAnswer(null);setSelectedEvidence(null);
   try{
-   const data:History=scope==='window'?await loadRevisionWindow(selected,{endDate:day,days:span,limit:20}):await loadRevisionList(selected);
+   const data:History=scope==='window'?await loadRevisionWindow(selected,{language:nextLanguage,endDate:day,days:span,limit:20}):await loadRevisionList(selected,{language:nextLanguage});
    if(operation.current!==stamp)return;
    if(data.revisions.length<2)throw new Error('Only one revision was found in this window. Broaden the date range.');
    setHistory(data);setTopic(data.identity.title);setNewer(data.revisions[0].revisionId);
@@ -66,12 +72,12 @@ export default function HistoryExplorer({mode,focusArticle,onRead,onReadSource,o
   }catch(e:any){if(operation.current===stamp){setHistory(null);setError(e.message||'Revision history unavailable');}}
   finally{if(operation.current===stamp)setBusy('');}
  }
- useEffect(()=>{if(mode==='pulse')void loadPulse();else void fetchHistory();return()=>{operation.current++;revisionOperation.current++;};},[mode,focusArticle?.pageId,focusArticle?.revisionId,focusArticle?.language]);
+ useEffect(()=>{if(mode==='pulse')void loadPulse();else void fetchHistory(focusArticle?.title||topic,historyScope,anchorDate,windowDays,focusArticle?.language||'en');return()=>{operation.current++;revisionOperation.current++;};},[mode,focusArticle?.pageId,focusArticle?.revisionId,focusArticle?.language]);
  async function moreRevisions(){
   if(!history?.nextCursor||!history.window||busy)return;
   const stamp=++operation.current;setBusy('Loading more revisions within the selected historical window…');setError('');
   try{
-   const next=await loadRevisionWindow(history.identity.title,{endDate:history.window.end,days:history.window.days,limit:20,cursor:history.nextCursor,pageId:history.identity.pageId});
+   const next=await loadRevisionWindow(history.identity.title,{language:history.identity.language,endDate:history.window.end,days:history.window.days,limit:20,cursor:history.nextCursor,pageId:history.identity.pageId});
    if(stamp!==operation.current)return;setHistory(mergeRevisionPages(history,next));
   }catch(e:any){if(stamp===operation.current)setError(e.message||'Could not continue this historical window.');}
   finally{if(stamp===operation.current)setBusy('');}
@@ -112,7 +118,7 @@ export default function HistoryExplorer({mode,focusArticle,onRead,onReadSource,o
  async function compare(){
   if(!history||!older||!newer)return;
   const stamp=++operation.current;setBusy('Loading and comparing two pinned article revisions…');setError('');setRevisionAnswer(null);setDiff(null);
-  try{const output=await compareRevisions(history,older,newer);if(stamp!==operation.current)return;setDiff(output);setRevisionRound(0);}
+  try{const output=await compareRevisions(history,older,newer);if(stamp!==operation.current)return;setDiff(output);setRevisionRound(0);setSelectedEvidence(null);setEvidenceFilter('all');}
   catch(e:any){if(stamp===operation.current)setError(e.message||'Could not compare these revisions');}
   finally{if(stamp===operation.current)setBusy('');}
  }
@@ -120,6 +126,17 @@ export default function HistoryExplorer({mode,focusArticle,onRead,onReadSource,o
   if(!change||revisionAnswer!==null||!diff)return;
   setRevisionAnswer(answer);const correct=gradeChange(change,answer);
   onComplete({mode:'capsule',kind:'revision-change',title:history?.identity.title||'',correct,score:correct?100:0,at:new Date().toISOString(),source:diff.later.sourceUrl,sourceIds:[String(diff.earlier.revisionId),String(diff.later.revisionId)]});
+ }
+ function snapshot(r:Revision):SourceArticle{
+  if(!history)throw new Error('No original revision history selected');
+  return {language:history.identity.language,pageId:history.identity.pageId,title:history.identity.title,revisionId:r.revisionId};
+ }
+ function selectSnapshot(r:Revision,kind:'earlier'|'later'){if(kind==='earlier')setOlder(r.revisionId);else setNewer(r.revisionId);setDiff(null);setRevisionAnswer(null);setSelectedEvidence(null);}
+ function changeSnapshot(current:number|null,direction:1|-1){
+  if(!history)return;
+  const index=history.revisions.findIndex(r=>r.revisionId===current);
+  const next=history.revisions[index+direction];if(!next)return;
+  selectSnapshot(next,current===older?'earlier':'later');
  }
  return <section className="hist">
   <div className="mode-head"><h1>{mode==='pulse'?'WikiPulse':'Time Capsule'}</h1></div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import {sourceRevisionUrl} from '../domain/study.mjs';
 type Article={language:string;pageId:number;revisionId:number;title:string};
-const modes=[['galaxy','Knowledge Galaxy'],['geo','GeoWiki'],['chronicle','WikiChronicle'],['polyglot','WikiPolyglot'],['pulse','WikiPulse'],['race','WikiRace'],['linklab','Link Lab'],['study','Study Desk']];
+const modes=[['galaxy','Knowledge Galaxy'],['geo','GeoWiki'],['chronicle','WikiChronicle'],['polyglot','WikiPolyglot'],['pulse','WikiPulse'],['capsule','Time Capsule'],['race','WikiRace'],['linklab','Link Lab'],['study','Study Desk']];
 export default function TopicJourney({source,onGo,onClear}:{source:Article;onGo:(mode:string)=>void;onClear:()=>void}){
  const englishOnly=new Set(['race','linklab']);
  return <section className="topic-journey" aria-label="Connected topic journey">

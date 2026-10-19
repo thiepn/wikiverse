@@ -1,5 +1,5 @@
 import {apiRequest,wikipediaApi,loadArticle} from './wikimedia.mjs';
-import {pulseWindow,pulsePath,normalizePageviews,normalizeRevisions,paragraphChanges,historicalWindow,normalizeRevisionPage,safeRevisionCursor} from '../domain/history.mjs';
+import {pulseWindow,pulsePath,normalizePageviews,normalizeRevisions,paragraphChanges,revisionEvidence,historicalWindow,normalizeRevisionPage,safeRevisionCursor} from '../domain/history.mjs';
 const cache=new Map();const pending=new Map();const LIMIT=24;let nextAllowed=0;let chain=Promise.resolve();
 import {isArticleTitle} from '../domain/game.mjs';
 const API='https://wikimedia.org';
@@ -43,7 +43,8 @@ export async function compareRevisions(history,olderId,newerId){
   doc.querySelectorAll('script,style,table,nav,.references,.reflist,.navbox,.hatnote').forEach(x=>x.remove());
   return [...doc.querySelectorAll('p')].map(p=>p.textContent?.trim()||'');
  };
- return {...paragraphChanges({...before,paragraphs:paragraphs(before)},{...after,paragraphs:paragraphs(after)}),earlier:old,later:current};
+ const beforeSource={...before,paragraphs:paragraphs(before)},afterSource={...after,paragraphs:paragraphs(after)};
+ return {...paragraphChanges(beforeSource,afterSource),evidence:revisionEvidence(beforeSource,afterSource),earlier:old,later:current};
 }
 
 /** Date-scoped revision browsing. The cursor is opaque, used only for the same bounded query. */
