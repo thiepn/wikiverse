@@ -1,3 +1,4 @@
+import {hashSeed} from './game.mjs';
 /** Wikidata-source-only exploration projections. No inferred relationships or fabricated locations. */
 export const RELATIONS = Object.freeze({
  P31:'instance of',P279:'subclass of',P106:'occupation',P19:'place of birth',P20:'place of death',
