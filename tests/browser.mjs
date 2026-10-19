@@ -609,6 +609,17 @@ try{
    // W02 handoff must keep the exact selected EN article rather than a different current revision.
    assert.ok((await page.locator('.learn-pane[lang="en"] .learn-pane-head a').getAttribute('href'))?.includes('oldid=910'));
    await page.locator('.learn-passage-edition[lang="en"]').getByText(/Albert Einstein/).first().waitFor();
+   // W09 W02: the new Pulse entry uses the original article language/page/revision
+   // for pinned navigation, independently of current Wikimedia traffic metrics.
+   await page.locator('.topic-journey-actions').getByRole('button',{name:/WikiPulse/}).click();
+   await page.locator('.hist-pulse-focus').getByText(/Albert Einstein/).waitFor();
+   await page.locator('.hist-pulse-focus').getByText(/revision 910/).waitFor();
+   await page.locator('.hist-pulse-focus').getByRole('button',{name:/Open selected revision in Discover/}).click();
+   await page.locator('.reader-toolbar h2').getByText('Albert Einstein').waitFor();
+   await page.getByRole('button',{name:/All topics/}).click();
+   await page.locator('.topic-journey-actions').getByRole('button',{name:/WikiPulse/}).click();
+   await page.locator('.hist-pulse-focus').getByRole('button',{name:/Continue in Study Desk/}).click();
+   await page.locator('.study-panel').getByRole('heading',{name:'Albert Einstein'}).waitFor();
    await page.locator('.topic-journey-actions').getByRole('button',{name:/Link Lab/}).click();
    await page.locator('.linklab-panel').getByText(/pinned English revision 910/).waitFor();
    await page.getByRole('button',{name:/Generate sourced question/}).click();

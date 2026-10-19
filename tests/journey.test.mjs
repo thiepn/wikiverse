@@ -7,7 +7,7 @@ test('Session source handoff preserves original Wikipedia identity, not a fabric
  const routed=sourceHandoff('galaxy',fr);assert.deepEqual(routed.article,fr);
  assert.equal(routed.sourceUrl,'https://fr.wikipedia.org/w/index.php?oldid=1291');
  assert.equal(Object.hasOwn(routed,'qid'),false);
- for(const d of ['geo','chronicle','polyglot','study','discover'])assert.deepEqual(sourceHandoff(d,fr).article,fr);
+ for(const d of ['geo','chronicle','polyglot','pulse','study','discover'])assert.deepEqual(sourceHandoff(d,fr).article,fr);
 });
 test('Original English-only source games never reinterpret a different Wikipedia edition',()=>{
  for(const d of ['race','linklab','detective'])assert.throws(()=>sourceHandoff(d,fr),/English/);

@@ -40,7 +40,7 @@ export default function HistoryExplorer({mode,focusArticle,onRead,onReadSource,o
  const operation=useRef(0);
  const quiz=useMemo(()=>pulseQuiz(series,pulseRound),[series,pulseRound]);
  const daily=useMemo(()=>series.length?pulseCalendar(series):[],[series]);
- const inspectedDay=useMemo(()=>daily.length?pulseDayEvidence(series,daily.some(row=>row.date===selectedDay)?selectedDay:daily.at(-1).date):null,[series,daily,selectedDay]);
+ const inspectedDay=useMemo(()=>daily.length?pulseDayEvidence(series,daily.some(row=>row.date===selectedDay)?selectedDay:(daily.at(-1)?.date||'')):null,[series,daily,selectedDay]);
  const periodReport=useMemo(()=>daily.length>=14?pulsePeriodComparison(series,comparePeriod):null,[series,comparePeriod,daily]);
  const change=useMemo(()=>diff?changeChallenge(diff,String(revisionRound)):null,[diff,revisionRound]);
  async function loadPulse(updatedTitles=titles,nextDays=days,nextLanguage=language){
@@ -100,7 +100,7 @@ export default function HistoryExplorer({mode,focusArticle,onRead,onReadSource,o
   const n=++revisionOperation.current;setPulseRevisionBusy(true);setPulseRevisionError('');
   try{
    const h=pulseRevision.history;
-   const next=await loadRevisionWindow(h.identity.title,{language:h.identity.language,endDate:h.window.end,days:h.window.days,limit:20,cursor:h.nextCursor,pageId:h.identity.pageId});
+   const next=await loadRevisionWindow(h.identity.title,{language:h.identity.language,endDate:h.window!.end,days:h.window!.days,limit:20,cursor:h.nextCursor,pageId:h.identity.pageId});
    if(revisionOperation.current===n)setPulseRevision({sourceId:pulseRevision.sourceId,history:mergeRevisionPages(h,next)});
   }catch(err:any){if(revisionOperation.current===n)setPulseRevisionError(err.message||'Cannot load additional original revisions');}
   finally{if(revisionOperation.current===n)setPulseRevisionBusy(false);}
