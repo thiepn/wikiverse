@@ -100,10 +100,10 @@ try{
    const page=await context.newPage();page.setDefaultTimeout(12000);const issues=[];
    page.on('pageerror',e=>issues.push(e.message));
    await page.goto('http://127.0.0.1:4173',{waitUntil:'domcontentloaded'});
-   await page.getByRole('heading',{name:'Follow what connects.'}).waitFor();
+   await page.getByRole('heading',{name:'Explore',exact:true}).waitFor();
    async function nav(name){if(mode==='mobile')await page.getByRole('button',{name:'Toggle navigation'}).click();await page.locator('nav button').filter({hasText:name}).click();}
    // W01 real navigation: all five destinations are accessible before individual game modes.
-   await page.getByRole('heading',{name:'Follow what connects.'}).waitFor();
+   await page.getByRole('heading',{name:'Explore',exact:true}).waitFor();
    await page.locator('.universe-primary-tabs').getByRole('button',{name:'Play'}).click();
    await page.getByRole('heading',{name:'Play with real sources.'}).waitFor();
    await page.locator('.universe-primary-tabs').getByRole('button',{name:'Learn'}).click();
@@ -113,7 +113,7 @@ try{
    await page.locator('.universe-primary-tabs').getByRole('button',{name:'My Universe'}).click();
    await page.getByRole('heading',{name:/My Universe/}).waitFor();
    await page.locator('.universe-primary-tabs').getByRole('button',{name:'Explore'}).click();
-   await page.getByRole('heading',{name:'Follow what connects.'}).waitFor();
+   await page.getByRole('heading',{name:'Explore',exact:true}).waitFor();
    await nav('WikiRace');
    await page.locator('#start').selectOption({label:'Mathematics'});
    await page.getByRole('button',{name:/Generate verified route/}).click();
@@ -465,7 +465,7 @@ try{
    await page.getByRole('button',{name:/Confirm replacement/}).click();
    await page.getByText(/Verified backup replaced this device/).waitFor();
    await page.reload({waitUntil:'domcontentloaded'});
-   await page.getByRole('heading',{name:'Follow what connects.'}).waitFor();
+   await page.getByRole('heading',{name:'Explore',exact:true}).waitFor();
    await nav('Study Desk');
    await page.getByRole('heading',{name:/Study Desk/}).waitFor();
    await page.locator('.study-topic-list button').filter({hasText:'Mathematics'}).click();
