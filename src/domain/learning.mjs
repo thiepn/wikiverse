@@ -10,7 +10,7 @@ export function pairedSitelinks(entity,secondary){
 }
 /** Available Wikimedia sitelinks are actual language editions, never translated labels. */
 export function originalEditionOptions(entity){
- if(!/^Q[1-9]\\d*$/.test(entity?.id||''))return [];
+ if(!/^Q[1-9]\d*$/.test(entity?.id||''))return [];
  return LEARNING_LANGUAGES.flatMap(({code,name})=>{
   const title=entity.sitelinks?.[code+'wiki']?.title;
   return typeof title==='string'&&normalizeTitle(title)?[{language:code,name,title:normalizeTitle(title)}]:[];
@@ -22,7 +22,7 @@ export function originalPassageMatches(paragraphs,query='',limit=8){
  if(!Number.isInteger(limit)||limit<1||limit>24)throw new Error('Unsupported source passage limit');
  const text=String(query||'').trim().normalize('NFC').slice(0,100).toLocaleLowerCase();
  return (Array.isArray(paragraphs)?paragraphs:[]).flatMap((value,index)=>{
-  const paragraph=String(value||'').replace(/\\s+/g,' ').trim().normalize('NFC');
+  const paragraph=String(value||'').replace(/\s+/g,' ').trim().normalize('NFC');
   if(paragraph.length<12||paragraph.length>3000||text&&!paragraph.toLocaleLowerCase().includes(text))return [];
   return [{index,text:paragraph}];
  }).slice(0,limit);

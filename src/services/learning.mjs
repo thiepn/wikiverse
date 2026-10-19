@@ -10,7 +10,7 @@ export async function loadLanguagePair(title,secondary='fr',origin='en',pinnedAr
  return loadLanguagePairByQid(qid,secondary,pinnedArticle);
 }
 export async function loadLanguagePairByQid(qid,secondary='fr',pinnedArticle=null){
- if(!/^Q[1-9]\\d*$/.test(qid||'')||!supportedLanguage(secondary)||secondary==='en')throw new Error('Unsupported original Wikipedia edition');
+ if(!/^Q[1-9]\d*$/.test(qid||'')||!supportedLanguage(secondary)||secondary==='en')throw new Error('Unsupported original Wikipedia edition');
  const sites=['en','fr','de','ko','tr'].map(x=>x+'wiki').join('|');
  const response=await apiRequest(DATA,{action:'wbgetentities',ids:qid,props:'sitelinks',sitefilter:sites},{ttl:24*60*60_000});
  const entity=normalizeWikidataEntities(response.entities)?.[qid];

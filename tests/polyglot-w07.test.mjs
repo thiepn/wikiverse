@@ -10,8 +10,8 @@ test('W07 edition navigation lists only actual supported original sitelinks',()=
 });
 test('W07 passage selection remains literal, Unicode NFC-compatible and unaligned across editions',()=>{
  const original=['Texte sur la radioactivité et expériences scientifiques.', 'La chercheuse étudiait les phénomènes scientifiques et les résultats publiés.'];
- assert.deepEqual(originalPassageMatches(original,'SCIENTIFIQUES').map(p=>p.index),[1]);
- assert.equal(originalPassageMatches(['Cafe\\u0301 scientifique.'],'Café').length,1);
+ assert.deepEqual(originalPassageMatches(original,'SCIENTIFIQUES').map(p=>p.index),[0,1]);
+ assert.equal(originalPassageMatches(['Cafe\u0301 scientifique.'],'Café').length,1);
  assert.deepEqual(originalPassageMatches(original,'unobserved'),[]);
  assert.deepEqual(originalPassageMatches(original).map(p=>p.index),[0,1]);
  assert.throws(()=>originalPassageMatches(original,'',25),/Unsupported/);
