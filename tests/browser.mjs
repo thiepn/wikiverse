@@ -185,6 +185,8 @@ try{
    await page.getByText('WIKIDATA ENTITY Q10001').waitFor();
    await page.getByRole('button',{name:'Read verified English Wikipedia →'}).click();
    await page.locator('.reader-toolbar h2').getByText('Marie Curie').waitFor();
+   await page.getByRole('button',{name:/All topics/}).click();
+   await page.locator('.topics button').filter({hasText:'Mathematics'}).waitFor();
    await nav('GeoWiki');await page.getByRole('button',{name:'Locate a city'}).click();
    await page.locator('.exp-place-options button').first().click();await page.getByText('Correct!',{exact:true}).waitFor();
    await nav('WikiChronicle');await page.getByText('Source-verified chronology').waitFor();
