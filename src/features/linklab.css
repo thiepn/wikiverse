@@ -2,3 +2,27 @@
 .linklab .linklab-modes{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:18px 0}.linklab .linklab-modes button{font-size:14px}.linklab .linklab-modes button[aria-pressed='true']{border-color:#a4dcd8;background:#315e65}.linklab .linklab-modes span{font-size:14px;color:#a8bec8}
 
 .linklab .linklab-tools input{flex:1;background:#152b36;border:1px solid #527382;color:#eaf4f7;padding:12px 14px;border-radius:2px;min-height:45px;min-width:180px;font:inherit}@media(max-width:710px){.linklab .linklab-tools>input{width:100%}}
+
+.linklab .linklab-source-actions,.linklab .linklab-original-links{display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.linklab .linklab-source-actions button,.linklab .linklab-source-actions a{font-size:14px}
+.linklab .linklab-inspector{margin-top:20px}
+.linklab .linklab-inspector-head{display:flex;flex-wrap:wrap;gap:14px;align-items:baseline;justify-content:space-between}
+.linklab .linklab-inspector h2{font-size:21px;margin:0 0 12px}
+.linklab .linklab-inspector-head>span,.linklab .linklab-inspector>p{font-size:14px;color:#b8cbd3}
+.linklab .linklab-linkcounts{display:flex;flex-wrap:wrap;gap:9px;margin:12px 0}
+.linklab .linklab-linkcounts button{font-size:14px}
+.linklab .linklab-linkcounts button[aria-pressed=true]{border-color:#a6e2db;background:#315e63}
+.linklab #linklab-find{font:inherit;min-height:45px;padding:11px 13px;display:block;max-width:100%;width:100%;background:#132b37;border:1px solid #587580;color:#edf4f7}
+.linklab .linklab-link-set{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:400px;overflow:auto;margin:12px 0}
+.linklab .linklab-link-set>div{padding:13px;border:1px solid #446471;min-width:0;display:grid;gap:8px;background:#1b3541}
+.linklab .linklab-link-set>div.active{border-color:#a2e4df}
+.linklab .linklab-link-set span{font-size:14px;color:#b9d0d6}
+.linklab .linklab-inspect-title{font-size:16px;text-align:left;overflow-wrap:anywhere}
+.linklab .linklab-inspected{background:#213f4d;border:1px solid #648790;padding:14px;margin-top:15px}
+.linklab .linklab-inspected h3{font-size:18px;margin:0 0 10px}
+.linklab .linklab-inspected p{font-size:14px}
+.linklab .linklab-answer-evidence{border:1px solid #557b7f;margin:12px 0;padding:14px}
+.linklab .linklab-answer-evidence h3{font-size:17px;margin:0 0 11px}
+.linklab .linklab-answer-evidence>div:not(.linklab-original-links){display:grid;grid-template-columns:minmax(150px,1fr) minmax(120px,1fr) minmax(120px,1fr);gap:9px;padding:9px 0;border-top:1px solid #426366;font-size:14px}
+.linklab .linklab-answer-evidence>div strong{overflow-wrap:anywhere}
+@media(max-width:760px){.linklab .linklab-link-set{grid-template-columns:1fr}.linklab .linklab-answer-evidence>div:not(.linklab-original-links){grid-template-columns:1fr;gap:4px}.linklab .linklab-inspector{padding:16px}}
