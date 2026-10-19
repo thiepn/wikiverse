@@ -135,20 +135,20 @@ try{
    await page.getByRole('button',{name:/Generate verified route/}).click();
    await page.locator('.article-body a[data-article-title="Physics"]').click();
    await page.locator('.article-body a[data-article-title="History"]').click();
-   await page.getByText('Destination reached').waitFor();
+   await page.getByRole('heading',{name:'Destination reached'}).waitFor();
    // W03: original route lengths, immutable replay and revision-backed proof links.
    assert.equal(await page.locator('.race-proof-sources a').count(),3);
    const pinnedBefore=await page.locator('.race-proof-sources a').first().getAttribute('href');
    await page.getByRole('button',{name:/Replay same pinned route/}).click();
    await page.locator('.article-body a[data-article-title="Physics"]').click();
    await page.locator('.article-body a[data-article-title="History"]').click();
-   await page.getByText('Destination reached').waitFor();
+   await page.getByRole('heading',{name:'Destination reached'}).waitFor();
    assert.equal(await page.locator('.race-proof-sources a').first().getAttribute('href'),pinnedBefore);
    await page.getByRole('button',{name:/Leave race/}).click();
    await page.locator('#race-hops').selectOption('1');
    await page.getByRole('button',{name:/Generate verified route/}).click();
    await page.locator('.article-body a[data-article-title="Physics"]').click();
-   await page.getByText('Destination reached').waitFor();
+   await page.getByRole('heading',{name:'Destination reached'}).waitFor();
    assert.equal(await page.locator('.race-proof-sources a').count(),2);
    await page.getByRole('button',{name:/Leave race/}).click();
    await page.locator('#race-hops').selectOption('3');
@@ -159,7 +159,7 @@ try{
    const route=proofText.split('route: ')[1].split(' → ').slice(1);
    assert.equal(route.length,3);
    for(const title of route)await page.locator('.article-body a[data-article-title="'+title+'"]').click();
-   await page.getByText('Destination reached').waitFor();
+   await page.getByRole('heading',{name:'Destination reached'}).waitFor();
    assert.equal(await page.locator('.race-proof-sources a').count(),4);
    await nav('Link Lab');
    await page.getByRole('button',{name:/Generate sourced question/}).click();
