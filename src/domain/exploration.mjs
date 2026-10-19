@@ -66,6 +66,61 @@ export function coordinate(entity){
  return null;
 }
 export function mapPoint({latitude,longitude}){return {x:((longitude+180)/360)*900,y:((90-latitude)/180)*450};}
+/** W05 geographical regions are mathematical coordinate windows, NOT continent or country claims. */
+export const GEO_VIEWS=Object.freeze([
+ {id:'world',label:'Whole Earth',minLat:-90,maxLat:90,minLon:-180,maxLon:180},
+ {id:'north',label:'Northern hemisphere',minLat:0,maxLat:90,minLon:-180,maxLon:180},
+ {id:'south',label:'Southern hemisphere',minLat:-90,maxLat:0,minLon:-180,maxLon:180},
+ {id:'east',label:'Eastern hemisphere',minLat:-90,maxLat:90,minLon:0,maxLon:180},
+ {id:'west',label:'Western hemisphere',minLat:-90,maxLat:90,minLon:-180,maxLon:0}
+]);
+export function geoView(viewId){
+ const view=GEO_VIEWS.find(x=>x.id===viewId);
+ if(!view)throw new Error('Unsupported geographic coordinate window');
+ return view;
+}
+/** Only already verified W05 P625 records from the original adapter are eligible. */
+export function isGeoPlace(place){
+ return validQid(place?.qid)&&Number.isFinite(place.latitude)&&Number.isFinite(place.longitude)&&Math.abs(place.latitude)<=90&&Math.abs(place.longitude)<=180&&place.sourceUrl==='https://www.wikidata.org/wiki/'+place.qid+'#P625';
+}
+export function geoPlacesInView(places,viewId='world',search=''){
+ const view=geoView(viewId),term=String(search||'').trim().toLocaleLowerCase('en').slice(0,120),seen=new Set();
+ return (Array.isArray(places)?places:[]).filter(p=>{
+  if(!isGeoPlace(p)||seen.has(p.qid))return false;
+  seen.add(p.qid);
+  return p.latitude>=view.minLat&&p.latitude<=view.maxLat&&p.longitude>=view.minLon&&p.longitude<=view.maxLon&&(!term||[p.title,p.qid,p.articleTitle].some(s=>String(s||'').toLocaleLowerCase('en').includes(term)));
+ });
+}
+export function geoProject(place,viewId='world'){
+ if(!isGeoPlace(place))throw new Error('GeoWiki cannot project unverified P625 coordinates');
+ const view=geoView(viewId);
+ if(place.latitude<view.minLat||place.latitude>view.maxLat||place.longitude<view.minLon||place.longitude>view.maxLon)throw new Error('Coordinate lies outside this mathematical view');
+ return {x:((place.longitude-view.minLon)/(view.maxLon-view.minLon))*900,y:((view.maxLat-place.latitude)/(view.maxLat-view.minLat))*450};
+}
+/** Spherical great-circle estimate in kilometres, not a Wikidata statement or travel route. */
+export function geoDistanceKm(origin,destination){
+ if(!isGeoPlace(origin)||!isGeoPlace(destination))throw new Error('Distance requires two verified Earth P625 locations');
+ const rad=Math.PI/180,dLat=(destination.latitude-origin.latitude)*rad,dLon=(destination.longitude-origin.longitude)*rad;
+ const a=Math.sin(dLat/2)**2+Math.cos(origin.latitude*rad)*Math.cos(destination.latitude*rad)*Math.sin(dLon/2)**2;
+ return Math.round(6371*2*Math.atan2(Math.sqrt(Math.min(1,a)),Math.sqrt(Math.max(0,1-a))));
+}
+export function geoNearPlaces(origin,places,limit=3){
+ if(!isGeoPlace(origin)||!Number.isInteger(limit)||limit<1||limit>10)throw new Error('Invalid verified coordinate comparison');
+ return (Array.isArray(places)?places:[]).filter(p=>isGeoPlace(p)&&p.qid!==origin.qid)
+  .map(p=>({...p,distanceKm:geoDistanceKm(origin,p)})).sort((a,b)=>a.distanceKm-b.distanceKm||a.qid.localeCompare(b.qid)).slice(0,limit);
+}
+/** Pick a deterministic subset of actual non-deprecated Earth coordinate records.
+ * "Northernmost" and "southernmost" apply only to the displayed original subset. */
+export function geoLatitudeChallenge(places,seed,{direction='north',count=3}={}){
+ if(!['north','south'].includes(direction)||![3,4].includes(count))throw new Error('Unsupported original coordinate comparison');
+ const valid=geoPlacesInView(places);
+ if(valid.length<count)throw new Error('Not enough verified P625 locations in the chosen coordinate view');
+ const rotated=[...valid].sort((a,b)=>hashSeed(String(seed)+':'+a.qid)-hashSeed(String(seed)+':'+b.qid)||a.qid.localeCompare(b.qid));
+ const options=rotated.slice(0,count);
+ const ranked=[...options].sort((a,b)=>direction==='north'?b.latitude-a.latitude:a.latitude-b.latitude);
+ if(ranked[0].latitude===ranked[1].latitude)throw new Error('Latitude comparison is ambiguous at the available source precision');
+ return {kind:'verified-p625-latitude',direction,options,answer:ranked[0],scope:'selected original coordinate records',ranked:false};
+}
 export function parseWikidataYear(entity,property){
  for(const claim of entity?.claims?.[property]||[]){
    if(claim.rank==='deprecated'||claim.mainsnak?.snaktype!=='value')continue;
