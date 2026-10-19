@@ -46,3 +46,22 @@ test('W05 original Earth-only and nondeprecated P625 source constraints remain a
  assert.equal(isGeoPlace({...selected,title:'Berlin'}),true);
  assert.equal(coordinate({id:'Q11',claims:{P625:[claim(1,2,'normal','http://www.wikidata.org/entity/Q111')]}}),null);
 });
+
+test('W05 P17 geographic relationships come from current nondeprecated Wikidata statements only',async()=>{
+ const {geoPlaceRelations}=await import('../src/services/exploration.mjs');
+ const {clearApiCache}=await import('../src/services/wikimedia.mjs');
+ const old=globalThis.fetch;clearApiCache();
+ globalThis.fetch=async uri=>{
+  const u=new URL(uri);
+  if(u.searchParams.get('action')!=='wbgetentities')throw Error('Unexpected original API operation');
+  const ids=(u.searchParams.get('ids')||'').split('|');
+  const claim=(id,rank='normal')=>({rank,mainsnak:{snaktype:'value',datavalue:{value:{id}}}});
+  return {ok:true,status:200,json:async()=>({entities:Object.fromEntries(ids.map(id=>[id,id==='Q64'?{id,claims:{P17:[claim('Q183')],P131:[claim('Q999','deprecated')]}}:{id,labels:{en:{value:'Germany'}},claims:{}}]))})};
+ };
+ try{
+  const relations=await geoPlaceRelations('Q64');
+  assert.equal(relations.length,1);assert.deepEqual([relations[0].property,relations[0].to,relations[0].title],['P17','Q183','Germany']);
+  assert.equal(relations[0].sourceUrl,'https://www.wikidata.org/wiki/Q64#P17');
+  assert.throws(()=>geoPlaceRelations('Q64;evil'),/Invalid/);
+ }finally{globalThis.fetch=old;clearApiCache();}
+});

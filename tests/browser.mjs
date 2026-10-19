@@ -19,12 +19,14 @@ function entity(qid){
  if(qid==='Q90001')return {id:qid,labels:{en:{value:'scientist'}},claims:{}};
  if(qid==='Q90002')return {id:qid,labels:{en:{value:'Warsaw'}},claims:{}};
  if(qid==='Q90003')return {id:qid,labels:{en:{value:'scientific award'}},claims:{}};
+ if(qid==='Q183')return {id:'Q183',labels:{en:{value:'Germany'}},claims:{}};
  if(/^Q910\d{2}$/.test(qid))return {id:qid,labels:{en:{value:'Recorded relationship '+qid}},claims:{}};
  const title=idToTitle[qid];if(!title)return {id:qid,missing:''};
  const claims={};
  if(people.includes(title)){claims.P106=[claim({id:'Q90001'})];claims.P19=[claim({id:'Q90002'})];claims.P166=[claim({id:'Q90003'})];}
  if(title==='Albert Einstein')claims.P31=Array.from({length:11},(_,i)=>claim({id:'Q'+(91001+i)}));
  if(position[title])claims.P625=[claim(position[title])];
+ if(title==='Berlin')claims.P17=[claim({id:'Q183'})];
  if(birth[title])claims[events.includes(title)?'P571':'P569']=[claim({time:'+'+String(birth[title]).padStart(4,'0')+'-01-01T00:00:00Z',precision:11})];
  return {id:qid,labels:{en:{value:title}},aliases:{en:[]},claims};
 }
@@ -187,8 +189,31 @@ try{
    await page.locator('.reader-toolbar h2').getByText('Marie Curie').waitFor();
    await page.getByRole('button',{name:/All topics/}).click();
    await page.locator('.topics button').filter({hasText:'Mathematics'}).waitFor();
+   // W05: the map and its accessible list show *real loaded P625* records by mathematical hemisphere.
+   await nav('GeoWiki');await page.locator('.exp-geo-list button').first().waitFor();
+   await page.locator('.exp-geo-views').getByRole('button',{name:/Northern hemisphere/}).click();
+   assert.equal(await page.locator('.exp-geo-list button').count(),6,'Mathematical northern hemisphere must use actual source latitude');
+   await page.locator('.exp-geo-views').getByRole('button',{name:/Southern hemisphere/}).click();
+   assert.equal(await page.locator('.exp-geo-list button').count(),4,'Southern view is source-coordinate filtered');
+   await page.locator('.exp-geo-views').getByRole('button',{name:/Whole Earth/}).click();
+   await page.locator('.exp-geo-pin').first().press('Enter');
+   await page.locator('.exp-geo-inspector').getByText(/Berlin/).first().waitFor();
+   await page.locator('.exp-geo-relations').getByText(/country: Germany/).waitFor();
+   assert.equal(await page.locator('.exp-geo-near button').count(),3,'Nearby list derived from loaded original locations');
+   await page.locator('.exp-geo-inspector').getByRole('button',{name:/Explore in Knowledge Galaxy/}).click();
+   await page.getByText('WIKIDATA ENTITY Q10012').waitFor();
    await nav('GeoWiki');await page.getByRole('button',{name:'Locate a city'}).click();
    await page.locator('.exp-place-options button').first().click();await page.getByText('Correct!',{exact:true}).waitFor();
+   await page.getByRole('button',{name:/Explore coordinates/}).click();
+   await page.getByRole('button',{name:'Compare latitudes'}).click();
+   await page.locator('#geo-density').selectOption('4');
+   await page.waitForFunction(()=>document.querySelectorAll('.exp-geo-lat-options button').length===4);
+   await page.locator('.exp-geo-lat-options button').first().click();
+   await page.locator('.exp-geo-latitude .exp-feedback a').first().waitFor();
+   assert.equal(await page.locator('.exp-geo-latitude .exp-feedback a').count(),4,'Every latitude comparison links to its original P625 claim');
+   await page.getByRole('button',{name:/Another coordinate comparison/}).click();
+   await page.locator('#geo-direction').selectOption('south');
+   await page.locator('.exp-geo-lat-options button').first().waitFor();
    await nav('WikiChronicle');await page.getByText('Source-verified chronology').waitFor();
    await page.getByRole('button',{name:'Order challenge'}).click();
    await page.getByRole('button',{name:/Check order/}).click();await page.getByText(/Not quite/).waitFor();
