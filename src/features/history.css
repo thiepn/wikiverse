@@ -23,3 +23,31 @@
 .hist .hist-pulse-revisions>a{display:inline-block;font-size:14px;margin-left:14px}
 .hist .hist-pulse-focus-actions{display:flex;gap:10px;flex-wrap:wrap}
 @media(max-width:740px){.hist .hist-pulse-revision-list>div{grid-template-columns:1fr}.hist .hist-pulse-period-head>select{width:100%}.hist .hist-pulse-day>select{width:100%}.hist .hist-pulse-revisions>a{margin:12px 0}}
+
+.hist .hist-capsule-pinned p,.hist .hist-capsule-evidence p,.hist .hist-capsule-archive>p{font-size:14px;line-height:1.6}
+.hist .hist-capsule-actions,.hist .hist-capsule-stepper{display:flex;flex-wrap:wrap;gap:9px;margin-top:14px;align-items:center}
+.hist .hist-capsule-actions button,.hist .hist-capsule-actions a{font-size:14px}
+.hist .hist-capsule-stepper{padding-top:14px;border-top:1px solid #395362}
+.hist .hist-capsule-stepper button{font-size:14px}
+.hist .hist-capsule-evidence-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center}
+.hist .hist-capsule-evidence-head>div{display:flex;flex-wrap:wrap;gap:8px}
+.hist .hist-capsule-evidence-head button[aria-pressed=true]{border-color:#a9e3dd;background:#305d68}
+.hist .hist-capsule-evidence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.hist .hist-capsule-evidence-grid>div{border:1px solid #446472;padding:16px;min-width:0;background:#1a323f}
+.hist .hist-capsule-evidence-grid h3{font-size:18px;margin:0 0 9px}
+.hist .hist-capsule-evidence-grid a{font-size:14px;display:inline-block;margin-top:12px}
+.hist .hist-capsule-evidence-list{max-height:480px;overflow-y:auto;display:grid;align-content:start;gap:9px}
+.hist .hist-capsule-evidence-list button{display:grid;text-align:left;gap:9px;min-width:0}
+.hist .hist-capsule-evidence-list button[aria-pressed=true]{border-color:#a9e5e3;background:#2f5360}
+.hist .hist-capsule-evidence-list strong{font-size:14px}
+.hist .hist-capsule-evidence-list span{font-size:15px;line-height:1.6;font-weight:400;overflow-wrap:anywhere}
+.hist .hist-capsule-evidence-inspector{margin-top:16px;padding:15px;background:#1c3b48;border:1px solid #80a3a8}
+.hist .hist-capsule-evidence-inspector h3{font-size:18px}
+.hist .hist-capsule-evidence-inspector blockquote{font:15px/1.65 Georgia,serif;border-left:3px solid #8bcece;padding:12px;margin:10px 0}
+.hist .hist-capsule-archive-search{display:grid;grid-template-columns:minmax(180px,1.5fr) repeat(2,minmax(145px,.8fr));gap:12px;margin-bottom:15px}
+.hist .hist-capsule-archive-search input{width:100%}
+.hist .hist-capsule-archive-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hist .hist-capsule-archive-actions button{font-size:14px;padding:8px;min-height:42px}
+.hist .hist-capsule-archive .hist-archive>div{grid-template-columns:155px minmax(150px,1fr) minmax(235px,auto)}
+@media(max-width:840px){.hist .hist-capsule-archive-search{grid-template-columns:repeat(2,minmax(0,1fr))}.hist .hist-capsule-archive-search>div:first-child{grid-column:1/-1}.hist .hist-capsule-archive .hist-archive>div{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:680px){.hist .hist-capsule-evidence-grid{grid-template-columns:minmax(0,1fr)}.hist .hist-capsule-archive-search{grid-template-columns:minmax(0,1fr)}.hist .hist-capsule-archive-search>div:first-child{grid-column:auto}.hist .hist-capsule-evidence-grid>div{padding:12px}.hist .hist-capsule-stepper button{flex:1 1 45%}}
