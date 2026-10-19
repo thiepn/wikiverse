@@ -34,7 +34,7 @@ export async function galaxyForQid(qid){
 /** QID -> English Wikipedia requires a real Wikidata sitelink, Wikipedia pageprops
  * confirming that exact QID, and a loaded canonical article before in-app navigation. */
 export async function verifiedGalaxyWikipedia(qid){
- if(!/^Q[1-9]\\d*$/.test(qid||''))throw new Error('Invalid Wikidata item for Wikipedia reading');
+ if(!/^Q[1-9]\d*$/.test(qid||''))throw new Error('Invalid Wikidata item for Wikipedia reading');
  const response=await apiRequest(DATA,{action:'wbgetentities',ids:qid,props:'sitelinks',sitefilter:'enwiki'},{ttl:24*60*60_000});
  const linked=normalizeWikidataEntities(response.entities)?.[qid];
  const title=linked?.sitelinks?.enwiki?.title;

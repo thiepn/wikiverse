@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {GALAXY_FACETS,galaxyVisibleEdges,galaxyPropertyCounts,galaxyTrailAppend,linkStatements} from '../src/domain/exploration.mjs';
+import {GALAXY_FACETS,RELATIONS,galaxyVisibleEdges,galaxyPropertyCounts,galaxyTrailAppend,linkStatements} from '../src/domain/exploration.mjs';
 import {verifiedGalaxyWikipedia} from '../src/services/exploration.mjs';
 import {clearApiCache} from '../src/services/wikimedia.mjs';
 const claim=(id,rank='normal')=>({rank,mainsnak:{snaktype:'value',datavalue:{value:{id}}},id:'Q100$statement'});
@@ -14,7 +14,7 @@ test('W04 faceted search only selects existing non-deprecated Wikidata statement
  assert.deepEqual(galaxyVisibleEdges(graph,{facet:'invalid'}),[]);
  assert.deepEqual(galaxyVisibleEdges(graph,{facet:'all',property:'P31'}).map(x=>x.to),['Q200']);
  assert.deepEqual(galaxyPropertyCounts(graph,'people').map(x=>x.property),['P106']);
- assert.deepEqual(new Set(GALAXY_FACETS.flatMap(x=>x.properties)).size,Object.keys(await import('../src/domain/exploration.mjs').then(m=>m.RELATIONS)).length);
+ assert.deepEqual(new Set(GALAXY_FACETS.flatMap(x=>x.properties)).size,Object.keys(RELATIONS).length);
 });
 test('W04 source trail preserves exact prior QID/property/statement and forbids invented hops or cycles',()=>{
  const path=galaxyTrailAppend([],graph,graph.edges[0]);
