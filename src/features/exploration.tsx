@@ -12,7 +12,7 @@ type Galaxy={root:{id:string;title:string;description:string;sourceUrl:string};e
 type Place={qid:string;title:string;articleTitle:string;latitude:number;longitude:number;sourceUrl:string};
 type Fact={qid:string;title:string;articleTitle:string;year:number;type:string;sourceUrl:string;property:string};
 type Result={mode:Mode;title:string;score:number;at:string;source:string};
-export default function Exploration({mode,focusArticle,onRead,onComplete,onKnowledge}:{mode:Mode;focusArticle?:Article|null;onRead:(title:string)=>void;onComplete:(result:Result)=>void;onKnowledge:(result:any)=>void}){
+export default function Exploration({mode,focusArticle,onRead,onReadSource,onComplete,onKnowledge}:{mode:Mode;focusArticle?:Article|null;onRead:(title:string)=>void;onReadSource:(article:Article)=>void;onComplete:(result:Result)=>void;onKnowledge:(result:any)=>void}){
  const [busy,setBusy]=useState('');const [error,setError]=useState('');
  const [focusEvidence,setFocusEvidence]=useState<any>(null);const [focusError,setFocusError]=useState('');
  const [galaxy,setGalaxy]=useState<Galaxy|null>(null);const [trail,setTrail]=useState<Crumb[]>([]);const [topic,setTopic]=useState('Marie Curie');const [matches,setMatches]=useState<{title:string;pageId:number}[]>([]);const [filter,setFilter]=useState('all');
@@ -56,7 +56,7 @@ export default function Exploration({mode,focusArticle,onRead,onComplete,onKnowl
  async function back(){if(trail.length)await jumpTo(trail.length-1);}
  async function openArticle(qid:string){
   if(busy)return;setBusy('Verifying Wikidata sitelink and original Wikipedia identity…');setError('');
-  try{const linked=await verifiedGalaxyWikipedia(qid);onRead(linked.article.title);}
+  try{const linked=await verifiedGalaxyWikipedia(qid);onReadSource(linked.article);}
   catch(e:any){setError(e.message||'No confirmed Wikipedia article exists for this item');}
   finally{setBusy('');}
  }
