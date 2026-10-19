@@ -1,6 +1,6 @@
 import {loadArticle,sourceFailureAdvice} from './wikimedia.mjs';
 import {STARTERS,hashSeed,normalizeTitle,isArticleTitle} from '../domain/game.mjs';
-import {buildLinkAudit,buildCommonLinkAudit} from '../domain/linklab.mjs';
+import {buildLinkAudit,buildCommonLinkAudit,buildLinkOriginAudit} from '../domain/linklab.mjs';
 import {checkedArticle} from '../domain/study.mjs';
 /** Bounded attempts; only real titles and original page/revision identities. */
 /** @param {{start?:string,seed?:string,sourceArticle?:any,choices?:3|4|5}} [options] */
@@ -19,7 +19,8 @@ export async function createLinkAudit({start='Mathematics',seed='linklab_1',sour
    const second=await loadArticle(candidate.title);
    const question=buildLinkAudit(first,second,{seed,limit:choices});
    let common=null;try{common=buildCommonLinkAudit(first,second,{seed,limit:choices});}catch{/* shared links genuinely absent */}
-   return {question,common,pages:[first,second],retrievedAt:new Date().toISOString()};
+   const origin=buildLinkOriginAudit(first,second,{seed});
+   return {question,common,origin,pages:[first,second],retrievedAt:new Date().toISOString()};
   }catch(e){if(sourceFailureAdvice(e).retryable)throw e;error=e;}
  }
  throw new Error('No fair source-backed question available from these articles: '+(error?.message||'insufficient distinct links'));
@@ -34,5 +35,6 @@ export async function replayLinkAudit(item){
  const seed='review_'+p.pageId+'_'+c.pageId;
  const question=buildLinkAudit(first,second,{seed});
  let common=null;try{common=buildCommonLinkAudit(first,second,{seed});}catch{}
- return {question,common,pages:[first,second],retrievedAt:new Date().toISOString(),reviewOf:'local-missed-source'};
+ const origin=buildLinkOriginAudit(first,second,{seed});
+ return {question,common,origin,pages:[first,second],retrievedAt:new Date().toISOString(),reviewOf:'local-missed-source'};
 }
