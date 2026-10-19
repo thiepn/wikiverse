@@ -83,7 +83,7 @@ export default function Learning({mode,focusArticle,onSelectSource,onVocabulary,
    setReviewSaved(true);setError('');
  }catch(e:any){setError(e.message||'Review not saved');}}
  return <section className="learn">
-   <div className="mode-head"><div className="eyebrow">{mode==='polyglot'?'08 / MULTILINGUAL DISCOVERY':'09 / RESEARCH LITERACY'}</div><h1>{mode==='polyglot'?'WikiPolyglot':'Source Detective'}<span className="accent">.</span></h1><p>{mode==='polyglot'?'Compare independently written Wikipedia language editions, capture vocabulary and practice exact-text retrieval.':'Trace Wikipedia citations, identify linked bibliography entries and record your own evidence assessment.'}</p></div>
+   <div className="mode-head"><h1>{mode==='polyglot'?'WikiPolyglot':'Source Detective'}</h1></div>
    {busy&&<div className="loading" role="status">{busy}</div>}
    {error&&<div className="error" role="alert">{error}<button onClick={()=>setError('')}>Dismiss</button></div>}
    <form className="learn-controls" onSubmit={e=>{e.preventDefault();if(mode==='polyglot')void fetchPair(topic,language);else void fetchEvidence(topic);}}>
@@ -98,9 +98,9 @@ export default function Learning({mode,focusArticle,onSelectSource,onVocabulary,
      <div className="learn-panes"><SourcePane page={pair.articles.en} selected={active==='en'} onSelect={()=>selectionOf('en')}/><SourcePane page={pair.articles[pairedLanguage]} selected={active===pairedLanguage} onSelect={()=>selectionOf(pairedLanguage)}/></div>
      <div className="learn-exercises">
        <section className="learn-panel">
-        <div className="eyebrow">VOCABULARY COLLECTION</div><h2>Capture a phrase</h2><p>Select short text in either article, or type it manually. Supply your own meaning; no machine translation is invented.</p>
+        <div className="eyebrow">VOCABULARY COLLECTION</div><h2>Capture a phrase</h2><p>Enter your own meaning; no translation is generated.</p>
         <form onSubmit={saveWord}><div className="learn-row"><select aria-label="Vocabulary language" value={captureLanguage} onChange={e=>setCaptureLanguage(e.target.value)}><option value="en">EN</option><option value={pairedLanguage}>{pairedLanguage.toUpperCase()}</option></select><input aria-label="Captured phrase" value={word} onChange={e=>setWord(e.target.value)} placeholder="Selected phrase"/><input aria-label="Your meaning" value={meaning} onChange={e=>setMeaning(e.target.value)} placeholder="Your translation / meaning"/></div><button type="submit">Save to My Universe →</button></form>
-        <div className="learn-clip-action"><button disabled={!selectedClip} onClick={()=>{onClip(selectedClip);setSelectedClip(null);}}>Save selected source excerpt →</button><button onClick={()=>{const page=readPage(pair,active);if(page)onOffline(page);}}>Save {active.toUpperCase()} compact offline reading →</button><small>Select 12–360 characters from either article. The original language and revision stay attached to this private excerpt.</small></div>
+        <div className="learn-clip-action"><button disabled={!selectedClip} onClick={()=>{onClip(selectedClip);setSelectedClip(null);}}>Save selected source excerpt →</button><button onClick={()=>{const page=readPage(pair,active);if(page)onOffline(page);}}>Save {active.toUpperCase()} compact offline reading →</button><span className="learn-clip-limit">Select 12–360 characters.</span></div>
        </section>
        <section className="learn-panel">
         <div className="eyebrow">SOURCE-TEXT RETRIEVAL · {exerciseLanguage.toUpperCase()}</div><h2>Complete the original sentence</h2><label htmlFor="exercise-language">Practice original edition</label><select id="exercise-language" aria-label="Exercise language" value={exerciseLanguage} onChange={e=>{setExerciseLanguage(e.target.value);setRound(0);nextCloze(pair,e.target.value,0);}}><option value="en">English original</option><option value={pairedLanguage}>{LEARNING_LANGUAGES.find(x=>x.code===pairedLanguage)?.name} original</option></select>

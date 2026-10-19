@@ -29,14 +29,14 @@ export default function BackupCenter({progress,onCommit}:{progress:any;onCommit:
  }
  const counts=progressCounts(progress);
  return <section className="backup">
-  <div className="mode-head"><div className="eyebrow">16 / PRIVATE DATA OWNERSHIP</div><h1>Backup & Recovery<span className="accent">.</span></h1><p>Export or restore your personal WikiVerse progress without an account or server. Review exactly what is in a file before committing it to this browser.</p></div>
+  <div className="mode-head"><h1>Backup & Recovery</h1></div>
   {error&&<div className="error" role="alert">{error} <button onClick={()=>setError('')}>Dismiss</button></div>}
   {notice&&<p className="backup-notice" role="status">{notice}</p>}
-  <div className="backup-columns"><section className="backup-panel"><div className="eyebrow">YOUR CURRENT DEVICE</div><h2>Download a private backup</h2><p>Includes local races, sourced game records, saved pages, compact offline reading copies, vocabulary, private evidence notes, study journeys, daily manifests and review dates.</p>
+  <div className="backup-columns"><section className="backup-panel"><h2>Download a private backup</h2>
    <div className="backup-counts"><span>Saved articles <b>{counts.saved}</b></span><span>Reading visits <b>{counts.readingHistory}</b></span><span>Study notes <b>{counts.studyNotes}</b></span><span>Link Lab attempts <b>{counts.linkLab}</b></span></div>
    <button disabled={loading} className="primary" onClick={()=>void download()}>Download full JSON backup →</button><p className="backup-caution">No data is uploaded. A backup file contains private information, so protect it like a personal document. Its SHA-256 checksum checks accidental changes, not the identity or trustworthiness of its author.</p>
   </section>
-  <section className="backup-panel"><div className="eyebrow">RESTORE / VERIFICATION FIRST</div><h2>Inspect an existing backup</h2><p>Choose a WikiVerse JSON file. Invalid or incompatible data is rejected. Nothing changes on this device until you confirm below.</p>
+  <section className="backup-panel"><h2>Inspect an existing backup</h2><p>Nothing changes until you confirm the restore.</p>
     <label htmlFor="backup-file">SELECT BACKUP FILE</label><input id="backup-file" type="file" accept=".json,application/json" disabled={loading} onChange={e=>void loadFile(e)}/>
     {!inspection&&<p className="backup-placeholder">No verified file loaded.</p>}
     {inspection&&<><p className="backup-notice">Verified file format and checksum · Exported {new Date(inspection.exportedAt).toLocaleString()}.</p>
