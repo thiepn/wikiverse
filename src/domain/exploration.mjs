@@ -5,6 +5,33 @@ export const RELATIONS = Object.freeze({
  P108:'employer',P166:'award received',P800:'notable work',P50:'author',P170:'creator',
  P61:'discoverer',P84:'architect',P176:'manufacturer',P138:'named after',P527:'has part',P22:'father',P25:'mother'
 });
+/** Filters group *existing* Wikidata P-statements; they never generate edges. */
+export const GALAXY_FACETS=Object.freeze([
+ {id:'identity',label:'Type & identity',properties:['P31','P279']},
+ {id:'people',label:'People & organizations',properties:['P106','P19','P20','P69','P108','P22','P25','P166']},
+ {id:'places',label:'Places & geography',properties:['P17','P131']},
+ {id:'work',label:'Research & creative work',properties:['P101','P800','P50','P170','P61','P84','P176']},
+ {id:'structure',label:'Parts & names',properties:['P361','P527','P138']}
+]);
+/** Deliberately bounded to original graph edges; no inferred path or fabricated label. */
+export function galaxyVisibleEdges(graph,{facet='all',property='all',query=''}={}){
+ const valid=Array.isArray(graph?.edges)?graph.edges.filter(e=>validQid(e.from)&&validQid(e.to)&&RELATIONS[e.property]&&e.from===graph.root?.id):[];
+ const chosen=facet==='all'?null:GALAXY_FACETS.find(x=>x.id===facet);
+ if(facet!=='all'&&!chosen)return [];
+ const term=String(query||'').trim().normalize('NFC').toLocaleLowerCase('en').slice(0,100);
+ return valid.filter(e=>(!chosen||chosen.properties.includes(e.property))&&(property==='all'||e.property===property)&&(!term||[e.title,e.label,e.property,e.to].some(x=>String(x||'').toLocaleLowerCase('en').includes(term))));
+}
+export function galaxyPropertyCounts(graph,facet='all'){
+ const edges=galaxyVisibleEdges(graph,{facet}),counts=new Map();
+ for(const edge of edges)counts.set(edge.property,(counts.get(edge.property)||0)+1);
+ return [...counts].map(([property,count])=>({property,label:RELATIONS[property],count}));
+}
+export function galaxyTrailAppend(trail,graph,edge){
+ if(!validQid(graph?.root?.id)||!validQid(edge?.to)||edge.from!==graph.root.id||!graph.edges?.some(e=>e.to===edge.to&&e.property===edge.property&&e.sourceUrl===edge.sourceUrl))throw new Error('Selected entity is not an original source-linked neighbor');
+ const visited=new Set([...trail.map(x=>x.id),graph.root.id]);
+ if(visited.has(edge.to))throw new Error('This item is already on the current source trail; use an earlier step to revisit it');
+ return [...trail,{id:graph.root.id,title:graph.root.title,via:edge.label,property:edge.property,statement:edge.sourceUrl}];
+}
 export const GEO_TOPICS=Object.freeze(['Berlin','Paris','Tokyo','Cairo','Nairobi','Sydney','Rio de Janeiro','Reykjavík','Seoul','Cape Town']);
 export const CHRONICLE_TOPICS=Object.freeze(['Marie Curie','Albert Einstein','Ada Lovelace','Isaac Newton','Charles Darwin','Florence Nightingale','Alan Turing','Katherine Johnson','Rosalind Franklin','Galileo Galilei','Grace Hopper','Apollo 11','World War I','French Revolution']);
 export const CHRONICLE_PROPERTIES=Object.freeze({P569:'Born',P571:'Inception',P577:'Published',P580:'Started',P585:'Event date'});

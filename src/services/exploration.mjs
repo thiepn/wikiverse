@@ -1,7 +1,8 @@
-import {pageEntityId,loadEntities,loadArticle} from './wikimedia.mjs';
+import {pageEntityId,loadEntities,loadArticle,apiRequest,normalizeWikidataEntities} from './wikimedia.mjs';
 import {checkedArticle} from '../domain/study.mjs';
 import {exactSource} from '../domain/journey.mjs';
 import {RELATIONS,GEO_TOPICS,CHRONICLE_TOPICS,linkStatements,englishLabel,coordinate,chronologicalFact,chronologicalOrder} from '../domain/exploration.mjs';
+const DATA='https://www.wikidata.org/w/api.php';
 /** Wikidata is today’s associated item, not the pinned Wikipedia page ID or historical claim. */
 export async function topicWikidataEvidence(input){
  const source=checkedArticle(input);
@@ -29,6 +30,22 @@ export async function galaxyForQid(qid){
  const related=links.length?await loadEntities(links.map(x=>x.to)):{};
  const edges=links.filter(x=>related[x.to]&&!related[x.to].missing).map(x=>({...x,title:englishLabel(related[x.to])}));
  return {root:{id:qid,title:englishLabel(root),description:root.descriptions?.en?.value||'',sourceUrl:`https://www.wikidata.org/wiki/${qid}`},edges,groups:[...new Set(edges.map(x=>x.property))].map(p=>({property:p,label:RELATIONS[p],count:edges.filter(x=>x.property===p).length}))};
+}
+/** QID -> English Wikipedia requires a real Wikidata sitelink, Wikipedia pageprops
+ * confirming that exact QID, and a loaded canonical article before in-app navigation. */
+export async function verifiedGalaxyWikipedia(qid){
+ if(!/^Q[1-9]\\d*$/.test(qid||''))throw new Error('Invalid Wikidata item for Wikipedia reading');
+ const response=await apiRequest(DATA,{action:'wbgetentities',ids:qid,props:'sitelinks',sitefilter:'enwiki'},{ttl:24*60*60_000});
+ const linked=normalizeWikidataEntities(response.entities)?.[qid];
+ const title=linked?.sitelinks?.enwiki?.title;
+ if(!title||typeof title!=='string')throw new Error('This Wikidata item has no verified English Wikipedia article');
+ const confirmed=await pageEntityId(title,'en');
+ if(confirmed!==qid)throw new Error('Wikipedia article no longer confirms this Wikidata item; source handoff refused');
+ const page=await loadArticle(title,null,'en');
+ if(page.identity.language!=='en'||page.identity.pageId<1||page.identity.revisionId<1)throw new Error('Linked Wikipedia article has no verifiable identity');
+ const again=await pageEntityId(page.identity.title,'en');
+ if(again!==qid)throw new Error('Resolved Wikipedia article is no longer linked to the same Wikidata item');
+ return {qid,article:page.identity,sourceUrl:'https://www.wikidata.org/wiki/'+qid};
 }
 export async function sourceCatalog(topics, project){
  const resolved=await Promise.allSettled(topics.map(resolveTopic));
