@@ -214,7 +214,65 @@ export default function Exploration({mode,focusArticle,initialQid,onExploreQid,o
      </div>}
      <p className="exp-caveat">Only non-deprecated Earth P625 statements are used. Hemisphere windows, latitude comparisons and straight-line estimates are computed from those sourced values, not inferred geopolitical boundaries, official rankings or travel times.</p>
    </>}
-   {mode==='chronicle'&&<><div className="exp-tabs"><button className={!chronoQuiz?'selected':''} onClick={()=>setChronoQuiz(false)}>Browse timeline</button><button className={chronoQuiz?'selected':''} disabled={facts.length<4} onClick={chronoStart}>Order challenge</button></div>{facts.length>0&&(chronoQuiz?<div className="exp-quiz-panel"><h2>Order the events, earliest first</h2><p>Move records up/down. Inspect evidence after checking.</p><div className="exp-order">{ordered.map((f,i)=><div className="exp-order-row" key={f.qid}><span>{i+1}</span><div><strong>{f.title}</strong><small>{f.type}</small></div><button disabled={i===0||chronoAnswer===true} aria-label={'Move '+f.title+' earlier'} onClick={()=>{setOrdered(x=>changeOrder(x,i,-1));setChronoAnswer(null);}}>↑</button><button disabled={i===ordered.length-1||chronoAnswer===true} aria-label={'Move '+f.title+' later'} onClick={()=>{setOrdered(x=>changeOrder(x,i,1));setChronoAnswer(null);}}>↓</button></div>)}</div><div className="exp-buttons"><button onClick={chronoCheck} disabled={chronoAnswer===true}>Check order →</button><button onClick={chronoStart}>Reshuffle</button></div>{chronoAnswer!==null&&<div className="exp-feedback"><strong>{chronoAnswer?'Correct order, saved locally.':'Not quite. Inspect the dates below and try again.'}</strong>{!chronoAnswer&&chronologicalOrder(ordered).map(f=><div key={f.qid}>{f.year} · {f.title} · <a href={f.sourceUrl} target="_blank" rel="noreferrer">Source ↗</a></div>)}</div>}</div>:
-     <div className="exp-timeline"><div className="exp-head"><h2>Source-verified chronology</h2><span className="eyebrow">{facts.length} DATED RECORDS</span></div>{facts.map(f=><div className="exp-event" key={f.qid}><div className="exp-year">{f.year}</div><div><small>{f.type.toUpperCase()} · {f.property}</small><h3>{f.title}</h3><div className="exp-buttons"><button onClick={()=>onRead(f.articleTitle)}>Read article →</button><a href={f.sourceUrl} target="_blank" rel="noreferrer">Dated claim ↗</a></div></div></div>)}</div>)}<p className="exp-caveat">Events use non-deprecated Wikidata dates with year-level precision or better; uncertain and BCE dates are excluded.</p></>}
+   {mode==='chronicle'&&<>
+     <div className="exp-tabs" role="group" aria-label="WikiChronicle source activities">
+       <button aria-pressed={!chronoQuiz&&!chronoExtreme} className={!chronoQuiz&&!chronoExtreme?'selected':''} onClick={()=>{setChronoQuiz(false);setChronoExtreme(false);}}>Browse timeline</button>
+       <button aria-pressed={chronoQuiz} className={chronoQuiz?'selected':''} disabled={facts.length<4} onClick={chronoStart}>Order challenge</button>
+       <button aria-pressed={chronoExtreme} className={chronoExtreme?'selected':''} disabled={visibleChrono.length<3} onClick={startExtreme}>Compare years</button>
+     </div>
+     <section className="exp-chrono-tools" aria-label="Filter recorded original Wikidata historical dates">
+       <div className="eyebrow">ORIGINAL NON-DEPRECATED WIKIDATA DATES / CE ONLY</div>
+       <div className="exp-chrono-properties">
+         <button aria-pressed={chronoProperty==='all'} className={chronoProperty==='all'?'selected':''} onClick={()=>setChronoProperty('all')}>All properties ({chronoRecords.length})</button>
+         {chroniclePropertyCounts(chronoRecords).map(x=><button key={x.property} aria-pressed={chronoProperty===x.property} className={chronoProperty===x.property?'selected':''} onClick={()=>setChronoProperty(x.property)}>{x.label} · {x.property} ({x.count})</button>)}
+       </div>
+       <div className="exp-chrono-query"><div><label htmlFor="chrono-search">FIND ORIGINAL PERSON, EVENT, PROPERTY OR QID</label><input id="chrono-search" type="search" value={chronoSearch} onChange={e=>setChronoSearch(e.target.value)} placeholder="Search original statement records…" maxLength={120}/></div>
+         <div><label htmlFor="chrono-from">FROM CE YEAR</label><input id="chrono-from" type="number" min="1" max="3000" value={chronoFrom} onChange={e=>setChronoFrom(e.target.value)} placeholder="Earliest"/></div>
+         <div><label htmlFor="chrono-to">THROUGH CE YEAR</label><input id="chrono-to" type="number" min="1" max="3000" value={chronoTo} onChange={e=>setChronoTo(e.target.value)} placeholder="Latest"/></div>
+       </div>
+       <div className="exp-chrono-filter-footer"><p>Showing {visibleChrono.length} of {chronoRecords.length} individually recorded date statements. Year ranges are inclusive, and filters do not invent missing history.</p><button onClick={()=>{setChronoProperty('all');setChronoSearch('');setChronoFrom('');setChronoTo('');}}>Reset timeline filters</button></div>
+     </section>
+     {sourceTopicDates.length>0&&<section className="exp-chrono-focus" aria-label="W02 connected source date statements"><div className="eyebrow">YOUR CONNECTED ARTICLE / INDEPENDENT CURRENT WIKIDATA EVIDENCE</div>
+       <h2>{focusArticle?.title}: {sourceTopicDates.length} original dated statement{sourceTopicDates.length!==1?'s':''}</h2>
+       <p>The linked item's current Wikidata facts are not claims about the pinned earlier Wikipedia revision. These dates are displayed separately and are not silently added to the graded Chronicle catalog.</p>
+       <div className="exp-chrono-focus-list">{sourceTopicDates.map(row=><div key={row.id}><strong>{chronoEvidenceDate(row)} · {row.type} · {row.property}</strong><span>Original {row.qid} · precision {row.precision}</span><a href={row.sourceUrl} target="_blank" rel="noreferrer">Inspect original date ↗</a>{onExploreQid&&<button onClick={()=>onExploreQid(row.qid)}>Investigate QID in Galaxy →</button>}</div>)}</div>
+     </section>}
+     {chronoQuiz&&facts.length>0&&<section className="exp-quiz-panel exp-chrono-order"><h2>Order the events, earliest first</h2><p>Move original dated records up or down. Each date can be inspected after checking. The original ordering engine and saved-result authority are unchanged.</p>
+       <div className="exp-order">{ordered.map((f,i)=><div className="exp-order-row" key={f.qid}><span>{i+1}</span><div><strong>{f.title}</strong><small>{f.type} · original {f.property}</small></div>
+         <button disabled={i===0||chronoAnswer===true} aria-label={'Move '+f.title+' earlier'} onClick={()=>{setOrdered(x=>changeOrder(x,i,-1));setChronoAnswer(null);}}>↑</button>
+         <button disabled={i===ordered.length-1||chronoAnswer===true} aria-label={'Move '+f.title+' later'} onClick={()=>{setOrdered(x=>changeOrder(x,i,1));setChronoAnswer(null);}}>↓</button></div>)}</div>
+       <div className="exp-buttons"><button onClick={chronoCheck} disabled={chronoAnswer===true}>Check order →</button><button onClick={chronoStart}>Reshuffle</button></div>
+       {chronoAnswer!==null&&<div className="exp-feedback"><strong>{chronoAnswer?'Correct order, saved locally.':'Not quite. Inspect the dates below and try again.'}</strong>
+         {!chronoAnswer&&chronologicalOrder(ordered).map(f=><div key={f.qid}>{f.year} · {f.title} · <a href={f.sourceUrl} target="_blank" rel="noreferrer">Source ↗</a></div>)}</div>}
+     </section>}
+     {chronoExtreme&&<section className="exp-quiz-panel exp-chrono-extreme"><div className="eyebrow">ADDITIONAL LOCAL PRACTICE / ORIGINAL DATE STATEMENTS</div><h2>Which recorded year is {chronoDirection}?</h2>
+       <div className="exp-chrono-challenge-options"><div><label htmlFor="chrono-direction">YEAR COMPARISON</label><select id="chrono-direction" value={chronoDirection} onChange={e=>{setChronoDirection(e.target.value as 'earliest'|'latest');setChronoExtremeChoice(null);}}><option value="earliest">Earliest recorded year</option><option value="latest">Latest recorded year</option></select></div>
+         <div><label htmlFor="chrono-count">SOURCED OPTIONS</label><select id="chrono-count" value={chronoCount} onChange={e=>{setChronoCount(Number(e.target.value) as 3|4);setChronoExtremeChoice(null);}}><option value={3}>3 original dated items</option><option value={4}>4 original dated items</option></select></div></div>
+       {chronoExtremeQuestion?<><p>Compare only these {chronoExtremeQuestion.options.length} original statements by CE year. Historical calendars, claims and day/month precision are shown as supplied; this is not a ranking of all history or a substitute for calendar conversion.</p>
+         <div className="exp-chrono-choice-grid">{chronoExtremeQuestion.options.map(row=><button key={row.id} disabled={chronoExtremeChoice!==null} onClick={()=>chooseExtreme(row)}>{row.title}<small>{row.type} · {row.property} · {row.qid}</small></button>)}</div>
+         {extremeOutcome!==null&&<div className="exp-feedback exp-chrono-answer"><strong>{extremeOutcome?'Correct original-year comparison.':'Not the '+chronoDirection+' observed year.'}</strong>
+           <p>{chronoExtremeQuestion.answer.title}, {chronoExtremeQuestion.answer.type.toLowerCase()} in {chronoExtremeQuestion.answer.year} CE, is the {chronoDirection} among only these options.</p>
+           {chronoExtremeQuestion.options.map(row=><div key={row.id}>{chronoEvidenceDate(row)} · {row.title} · {row.property} · <a href={row.sourceUrl} target="_blank" rel="noreferrer">Inspect original P-claim ↗</a></div>)}
+           <button onClick={nextExtreme}>Compare another original set →</button></div>}
+       </>:<p role="status">This filter contains fewer than {chronoCount} distinct, source-supported CE years. Broaden the timeline filters or reduce the choice count; no dates will be invented.</p>}
+     </section>}
+     {!chronoQuiz&&!chronoExtreme&&<div className="exp-timeline"><div className="exp-head"><div><h2>Source-verified chronology</h2><p>Review original dated claims rather than a single summary year for each entity.</p></div><span className="eyebrow">{visibleChrono.length} INDIVIDUAL SOURCE STATEMENTS</span></div>
+       {visibleChrono.length?<div className="exp-chrono-browser">
+         <div className="exp-chrono-track" role="list" aria-label="Navigable original Wikidata date sequence">{visibleChrono.map(row=><div key={row.id} className={'exp-chrono-row '+(chosenChrono?.id===row.id?'selected':'')} role="listitem">
+           <span className="exp-year">{row.year}</span><button aria-pressed={chosenChrono?.id===row.id} onClick={()=>setChronoSelected(row.id)}><strong>{row.title}</strong><small>{row.type} · {row.property} · {row.qid} · {row.precision===9?'year':row.precision===10?'month':'day'} precision</small></button></div>)}</div>
+         {chosenChrono&&<section className="exp-chrono-inspector" aria-label="Selected original Wikidata date claim">
+           <div className="eyebrow">SELECTED WIKIDATA DATE STATEMENT · {chosenChrono.qid}</div><h3>{chosenChrono.title}</h3>
+           <p><strong>{chosenChrono.type} ({chosenChrono.property})</strong> · {chronoEvidenceDate(chosenChrono)} · precision {chosenChrono.precision} ({chosenChrono.precision===9?'year only':chosenChrono.precision===10?'year and month':'year, month and day'})</p>
+           <p>Calendar model: {chosenChrono.calendar}. This is an original Wikidata statement, not a date inferred from prose or a conversion of a BCE or uncertain year.</p>
+           {chosenChrono.claimId&&<p className="exp-chrono-claim">Original statement ID: <code>{chosenChrono.claimId}</code></p>}
+           <div className="exp-buttons"><a href={chosenChrono.sourceUrl} target="_blank" rel="noreferrer">Inspect dated Wikidata claim ↗</a>
+             <button disabled={!!busy} onClick={()=>void openArticle(chosenChrono.qid)}>Open confirmed original Wikipedia revision →</button>
+             {onExploreQid&&<button onClick={()=>onExploreQid(chosenChrono.qid)}>Investigate QID in Galaxy →</button>}</div>
+           <div className="exp-chrono-step"><button disabled={visibleChrono[0]?.id===chosenChrono.id} onClick={()=>setChronoSelected(visibleChrono[Math.max(0,visibleChrono.findIndex(x=>x.id===chosenChrono.id)-1)].id)}>← Previous statement</button>
+             <button disabled={visibleChrono[visibleChrono.length-1]?.id===chosenChrono.id} onClick={()=>setChronoSelected(visibleChrono[Math.min(visibleChrono.length-1,visibleChrono.findIndex(x=>x.id===chosenChrono.id)+1)].id)}>Next statement →</button></div>
+         </section>}
+       </div>:<p className="exp-chrono-empty">No original supported statements match these filters. Clear a property, query or year boundary.</p>}</div>}
+     <p className="exp-caveat">W06 displays only non-deprecated, unambiguous CE Wikidata dates with explicit year-or-finer precision. BCE, uncertain and unsupported time statements are excluded; Gregorian/Julian day-level conversions are not inferred. Dates are claims with source links, not official historical certification. All challenges remain local and unranked.</p>
+   </>}
  </section>;
 }

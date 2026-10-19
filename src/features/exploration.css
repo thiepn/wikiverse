@@ -60,3 +60,37 @@
 .exp .exp-geo-near p,.exp .exp-geo-relations p{font-size:12px}
 @media(max-width:850px){.exp .exp-geo-browser{grid-template-columns:1fr}.exp .exp-geo-list{grid-template-columns:repeat(2,minmax(0,1fr));max-height:none}.exp .exp-geo-views button{flex:1 1 145px}}
 @media(max-width:480px){.exp .exp-geo-list{grid-template-columns:1fr}.exp .exp-geo-lat-options{grid-template-columns:1fr}.exp .exp-geo-difficulty select{width:100%}.exp .exp-geo-views button{flex:1 1 130px}.exp .exp-geo-inspector{padding:14px!important}}
+
+.exp .exp-chrono-tools,.exp .exp-chrono-focus{background:#17232e;border:1px solid #3f5863;padding:18px;margin:16px 0}
+.exp .exp-chrono-properties{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 19px}
+.exp .exp-chrono-properties button{font-size:12px}
+.exp .exp-chrono-query{display:grid;grid-template-columns:minmax(200px,1.6fr) repeat(2,minmax(110px,.65fr));gap:12px}
+.exp .exp-chrono-query input{width:100%;display:block}
+.exp .exp-chrono-filter-footer{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:15px;margin-top:16px}
+.exp .exp-chrono-filter-footer p,.exp .exp-chrono-focus p{font-size:12px;color:#aec1ca;margin:0}
+.exp .exp-chrono-browser{display:grid;grid-template-columns:minmax(200px,.9fr) minmax(0,1.15fr);gap:18px}
+.exp .exp-chrono-track{max-height:600px;overflow:auto;border:1px solid #385261;background:#152631}
+.exp .exp-chrono-row{display:grid;grid-template-columns:78px minmax(0,1fr);gap:8px;align-items:center;border-top:1px solid #365160;padding:9px}
+.exp .exp-chrono-row:first-child{border-top:0}
+.exp .exp-chrono-row.selected{background:#1f4650;border-left:3px solid #9adbdc}
+.exp .exp-chrono-row .exp-year{font-size:22px}
+.exp .exp-chrono-row button{width:100%;min-width:0;text-align:left}
+.exp .exp-chrono-row small{display:block;color:#b0c5ce;font-size:11px;margin-top:6px}
+.exp .exp-chrono-inspector{background:#1c3340;border:1px solid #4b6770;padding:23px;align-self:start;min-width:0}
+.exp .exp-chrono-inspector h3{margin:12px 0;font-size:24px}
+.exp .exp-chrono-inspector p{font-size:13px;margin:9px 0 15px}
+.exp .exp-chrono-claim{overflow-wrap:anywhere}
+.exp .exp-chrono-step{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px;padding-top:15px;border-top:1px solid #456471}
+.exp .exp-chrono-focus-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:15px}
+.exp .exp-chrono-focus-list>div{display:flex;flex-direction:column;gap:7px;padding:12px;background:#203945;border:1px solid #4c6a77}
+.exp .exp-chrono-focus-list span{font-size:11px;color:#b1c9d3}
+.exp .exp-chrono-focus-list a{font-size:11px;color:#b7e5e7}
+.exp .exp-chrono-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:15px 0}
+.exp .exp-chrono-choice-grid button{text-align:left}
+.exp .exp-chrono-choice-grid small{display:block;color:#abcad4;margin-top:7px;font-size:11px}
+.exp .exp-chrono-challenge-options{display:flex;flex-wrap:wrap;gap:15px;margin:17px 0}
+.exp .exp-chrono-challenge-options select{background:#152a36;color:#ecf6f7;border:1px solid #526d79;padding:12px;min-width:175px}
+.exp .exp-chrono-answer>div{font-size:12px}
+.exp .exp-chrono-empty{padding:20px;border:1px dashed #5c7480;color:#bcd1d8}
+@media(max-width:850px){.exp .exp-chrono-browser{grid-template-columns:minmax(0,1fr)}.exp .exp-chrono-track{max-height:360px}.exp .exp-chrono-query{grid-template-columns:1fr 1fr}.exp .exp-chrono-query>div:first-child{grid-column:1/-1}}
+@media(max-width:480px){.exp .exp-chrono-query{grid-template-columns:1fr}.exp .exp-chrono-query>div:first-child{grid-column:auto}.exp .exp-chrono-row{grid-template-columns:64px minmax(0,1fr)}.exp .exp-chrono-row .exp-year{font-size:18px}.exp .exp-chrono-inspector{padding:16px}.exp .exp-chrono-focus-list,.exp .exp-chrono-choice-grid{grid-template-columns:1fr}.exp .exp-chrono-challenge-options select{width:100%}}
