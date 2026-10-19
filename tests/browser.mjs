@@ -325,6 +325,8 @@ try{
    await page.getByRole('button',{name:'Previous original citation'}).click();
    await page.getByRole('button',{name:/Read original in Discover/}).click();
    await page.locator('.reader-toolbar h2').getByText('Marie Curie').waitFor();
+   await page.getByRole('button',{name:/All topics/}).click();
+   await page.locator('.topics button').filter({hasText:'Mathematics'}).waitFor();
    await nav('Source Detective');
    await page.locator('.learn-citation-index article').first().waitFor();
    await page.getByRole('button',{name:/Open source in Study Desk/}).click();
