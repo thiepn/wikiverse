@@ -54,6 +54,17 @@ export async function sourceCatalog(topics, project){
  const entities=await loadEntities(candidates.map(x=>x.id));
  return candidates.map(({id,title})=>{const entity=entities[id];if(!entity||entity.missing)return null;return project(entity,title);}).filter(Boolean);
 }
+/** Inspect only real P17/P131 current Wikidata statements on a source location.
+ * Not a coordinate calculation or a guessed national/administrative boundary. */
+export async function geoPlaceRelations(qid){
+ if(!/^Q[1-9]\\d*$/.test(qid||''))throw new Error('Invalid Wikidata place QID');
+ const root=(await loadEntities([qid]))[qid];
+ if(!root||root.missing)throw new Error('Selected Wikidata place unavailable');
+ const refs=linkStatements(root,24).filter(item=>item.property==='P17'||item.property==='P131').slice(0,6);
+ if(!refs.length)return [];
+ const targets=await loadEntities(refs.map(item=>item.to));
+ return refs.filter(item=>targets[item.to]&&!targets[item.to].missing).map(item=>({...item,title:englishLabel(targets[item.to])}));
+}
 export async function loadGeoCatalog(){
  const records=await sourceCatalog(GEO_TOPICS,(entity,articleTitle)=>{
    const position=coordinate(entity);if(!position)return null;
