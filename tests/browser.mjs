@@ -93,7 +93,8 @@ try{
      const parse=v=>Date.UTC(Number(v.slice(0,4)),Number(v.slice(4,6))-1,Number(v.slice(6,8)));
      const entries=[];for(let day=parse(start),i=0;day<=parse(end);day+=86400000,i++){
        const key=new Date(day).toISOString().slice(0,10).replaceAll('-','');
-       entries.push({article:title.replaceAll(' ','_'),project,access:'all-access',agent:'user',granularity:'daily',timestamp:key+'00',views:(title==='Marie Curie'?200:100)+i*2});
+       // A legitimate missing API row exposes gaps rather than fabricated zero traffic.
+        if(title!=='Albert Einstein'||i!==4)entries.push({article:title.replaceAll(' ','_'),project,access:'all-access',agent:'user',granularity:'daily',timestamp:key+'00',views:(title==='Marie Curie'?200:100)+i*2});
      }
      return route.fulfill({status:200,contentType:'application/json',headers:{'access-control-allow-origin':'*'},body:JSON.stringify({items:entries})});
    });
@@ -356,8 +357,22 @@ try{
    await nav('WikiPulse');
    await page.locator('.hist-metric').first().waitFor();
    assert.equal(await page.locator('.hist-metric').count(),2);
+   await page.locator('.history-plot svg polyline').first().waitFor();
+   assert.equal(await page.locator('.history-plot svg polyline').count(),3,'Real missing observation splits only the affected source line');
+   await page.locator('#pulse-date').selectOption({index:4});
+   await page.locator('.hist-pulse-day').getByText('No API observation').waitFor();
+   await page.locator('.hist-pulse-period-grid').getByText(/Missing API observations prevent a complete-window percentage/).waitFor();
+   await page.locator('#pulse-period').selectOption('week');
+   await page.locator('.hist-pulse-period').getByText(/First 7 days/).count().catch(()=>{});
+   await page.locator('.hist-metric').first().getByRole('button',{name:/Inspect revisions/}).click();
+   await page.locator('.hist-pulse-revision-list a').first().waitFor();
+   await page.locator('.hist-pulse-revisions').getByText(/retrieved revision entries/).waitFor();
+   await page.getByRole('button',{name:/Load more recorded revisions/}).click();
+   await page.locator('.hist-pulse-revision-list a').nth(7).waitFor();
    await page.getByRole('button',{name:/Show accessible daily data table/}).click();
    await page.locator('.hist-table-wrap table').waitFor();
+   assert.equal(await page.locator('.hist-table-wrap tbody tr').count(),30,'Accessible table includes missing source days');
+   await page.locator('.hist-table-wrap td').getByText('No observation').first().waitFor();
    await page.locator('.hist-options button').first().click();
    await page.locator('.hist-result').waitFor();
    await nav('Time Capsule');

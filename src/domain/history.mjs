@@ -46,7 +46,7 @@ export function pulseSummary(series){
 export function pulseCalendar(series){
  if(!Array.isArray(series)||!series.length)return [];
  const stamps=series.flatMap(s=>[s.start,s.end]);
- if(stamps.some(x=>typeof x!=='string'||!/^\\d{8}$/.test(x)))throw new Error('Missing original Wikimedia pageview window');
+ if(stamps.some(x=>typeof x!=='string'||!/^\d{8}$/.test(x)))throw new Error('Missing original Wikimedia pageview window');
  const start=stamps.sort()[0],end=stamps.at(-1),iso=x=>x.slice(0,4)+'-'+x.slice(4,6)+'-'+x.slice(6,8);
  const from=Date.parse(iso(start)+'T00:00:00Z'),to=Date.parse(iso(end)+'T00:00:00Z');
  if(!Number.isFinite(from)||!Number.isFinite(to)||to<from||(to-from)/UTC_DAY>100)throw new Error('Unsupported source day range');
@@ -95,7 +95,7 @@ export function pulsePeriodComparison(series,kind='halves'){
 }
 /** One selected day, with missing data visibly unknown and no invented winner. */
 export function pulseDayEvidence(series,date){
- if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date||''))throw new Error('Select a valid UTC source date');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date||''))throw new Error('Select a valid UTC source date');
  const row=pulseCalendar(series).find(x=>x.date===date);
  if(!row)throw new Error('Date is outside the retrieved original window');
  const observed=row.values.filter(v=>v.views!==null);
