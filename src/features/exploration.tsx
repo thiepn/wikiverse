@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useState} from 'react';
-import {galaxyForTitle,galaxyForQid,loadGeoCatalog,loadChronicle,topicWikidataEvidence,verifiedGalaxyWikipedia} from '../services/exploration.mjs';
+import {galaxyForTitle,galaxyForQid,loadGeoCatalog,loadChronicle,topicWikidataEvidence,verifiedGalaxyWikipedia,geoPlaceRelations} from '../services/exploration.mjs';
 import {searchArticles} from '../services/wikimedia.mjs';
-import {mapPoint,chronologicalOrder,shuffleDeterministic,isCorrectOrder,changeOrder,GALAXY_FACETS,galaxyVisibleEdges,galaxyPropertyCounts,galaxyTrailAppend} from '../domain/exploration.mjs';
+import {mapPoint,geoProject,geoPlacesInView,geoView,GEO_VIEWS,geoNearPlaces,geoLatitudeChallenge,chronologicalOrder,shuffleDeterministic,isCorrectOrder,changeOrder,GALAXY_FACETS,galaxyVisibleEdges,galaxyPropertyCounts,galaxyTrailAppend} from '../domain/exploration.mjs';
 import {sourceRelationQuestion,gradeRelationQuestion,knowledgeResult} from '../domain/knowledge.mjs';
 import './exploration.css';
 type Mode='galaxy'|'geo'|'chronicle';
@@ -9,19 +9,27 @@ type Article={language:string;pageId:number;revisionId:number;title:string};
 type Edge={from:string;to:string;title:string;property:string;label:string;sourceUrl:string;claimId?:string|null};
 type Crumb={id:string;title:string;via:string;property:string;statement:string};
 type Galaxy={root:{id:string;title:string;description:string;sourceUrl:string};edges:Edge[];groups:{property:string;label:string;count:number}[]};
-type Place={qid:string;title:string;articleTitle:string;latitude:number;longitude:number;sourceUrl:string};
+type Place={qid:string;title:string;articleTitle:string;latitude:number;longitude:number;sourceUrl:string;precision?:number|null;entityUrl?:string};
+type GeoRelation={from:string;to:string;label:string;property:string;sourceUrl:string;title:string};
 type Fact={qid:string;title:string;articleTitle:string;year:number;type:string;sourceUrl:string;property:string};
 type Result={mode:Mode;title:string;score:number;at:string;source:string};
-export default function Exploration({mode,focusArticle,onRead,onReadSource,onComplete,onKnowledge}:{mode:Mode;focusArticle?:Article|null;onRead:(title:string)=>void;onReadSource:(article:Article)=>void;onComplete:(result:Result)=>void;onKnowledge:(result:any)=>void}){
+export default function Exploration({mode,focusArticle,initialQid,onExploreQid,onRead,onReadSource,onComplete,onKnowledge}:{mode:Mode;focusArticle?:Article|null;initialQid?:string|null;onExploreQid?:(qid:string)=>void;onRead:(title:string)=>void;onReadSource:(article:Article)=>void;onComplete:(result:Result)=>void;onKnowledge:(result:any)=>void}){
  const [busy,setBusy]=useState('');const [error,setError]=useState('');
  const [focusEvidence,setFocusEvidence]=useState<any>(null);const [focusError,setFocusError]=useState('');
  const [galaxy,setGalaxy]=useState<Galaxy|null>(null);const [trail,setTrail]=useState<Crumb[]>([]);const [topic,setTopic]=useState('Marie Curie');const [matches,setMatches]=useState<{title:string;pageId:number}[]>([]);const [filter,setFilter]=useState('all');
  const [facet,setFacet]=useState('all'),[edgeQuery,setEdgeQuery]=useState(''),[selectedKey,setSelectedKey]=useState(''),[nodePage,setNodePage]=useState(0);
  const [places,setPlaces]=useState<Place[]>([]);const [place,setPlace]=useState<Place|null>(null);const [geoQuiz,setGeoQuiz]=useState(false);const [round,setRound]=useState(0);const [geoAnswer,setGeoAnswer]=useState<boolean|null>(null);
+ const [geoViewId,setGeoViewId]=useState('world'),[geoSearch,setGeoSearch]=useState(''),[geoKind,setGeoKind]=useState<'locate'|'latitude'>('locate'),[geoDirection,setGeoDirection]=useState<'north'|'south'>('north'),[geoDensity,setGeoDensity]=useState<3|4>(3);
+ const [geoRelations,setGeoRelations]=useState<GeoRelation[]>([]),[geoRelationError,setGeoRelationError]=useState(''),[geoRelationBusy,setGeoRelationBusy]=useState(false);
  const [facts,setFacts]=useState<Fact[]>([]);const [ordered,setOrdered]=useState<Fact[]>([]);const [chronoQuiz,setChronoQuiz]=useState(false);const [chronoAnswer,setChronoAnswer]=useState<boolean|null>(null);
  const [relationRound,setRelationRound]=useState(0),[relationChoice,setRelationChoice]=useState<string|null>(null);
  const relationQuiz=useMemo(()=>sourceRelationQuestion(galaxy,relationRound),[galaxy,relationRound]);
- const target=places.length?places[round%places.length]:null;
+ const topicCoordinate=useMemo(()=>mode==='geo'&&focusEvidence?.coordinate&&focusArticle?{...focusEvidence.coordinate,title:focusArticle.title,articleTitle:focusArticle.title}:null,[mode,focusEvidence,focusArticle]);
+ const visibleAtlas=useMemo(()=>geoPlacesInView([...places,...(topicCoordinate?[topicCoordinate]:[])],geoViewId,geoSearch) as Place[],[places,topicCoordinate,geoViewId,geoSearch]);
+ const visibleGamePlaces=useMemo(()=>geoPlacesInView(places,geoViewId,geoSearch) as Place[],[places,geoViewId,geoSearch]);
+ const target=visibleGamePlaces.length?visibleGamePlaces[round%visibleGamePlaces.length]:null;
+ const latitudeQuiz=useMemo(()=>{try{return geoLatitudeChallenge(visibleGamePlaces,'geowiki-w05:'+geoViewId+':'+geoDirection+':'+round,{direction:geoDirection,count:geoDensity});}catch{return null;}},[visibleGamePlaces,geoViewId,geoDirection,geoDensity,round]);
+ const nearPlaces=useMemo(()=>{try{return place?geoNearPlaces(place,[...places,...(topicCoordinate?[topicCoordinate]:[])],3):[];}catch{return [];}},[place,places,topicCoordinate]);
  const edges=useMemo(()=>galaxyVisibleEdges(galaxy,{facet,property:filter,query:edgeQuery}) as Edge[],[galaxy,facet,filter,edgeQuery]);
  const selectedEdge=edges.find(x=>x.property+':'+x.to===selectedKey)||edges[0]||null;
  const pageEdges=edges.slice(nodePage*8,(nodePage+1)*8);
@@ -30,12 +38,12 @@ export default function Exploration({mode,focusArticle,onRead,onReadSource,onCom
  useEffect(()=>{
    let active=true;setError('');
    async function load(){setBusy('Retrieving source-backed knowledge…');try{
-     if(mode==='galaxy'&&!focusArticle){const g=await galaxyForTitle('Marie Curie');if(active)setGalaxy(g);}
+     if(mode==='galaxy'&&!focusArticle){const g=initialQid?await galaxyForQid(initialQid):await galaxyForTitle('Marie Curie');if(active)setGalaxy(g);}
      if(mode==='geo'){const g=await loadGeoCatalog();if(active){setPlaces(g);setPlace(g[0]);}}
      if(mode==='chronicle'){const c=await loadChronicle();if(active){setFacts(c);setOrdered(shuffleDeterministic(c.slice(0,5),String(Date.now())));}}
    }catch(e:any){if(active)setError(e.message||'Source unavailable');}finally{if(active)setBusy('');}}
    void load();return()=>{active=false;};
- },[mode,focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);
+ },[mode,initialQid,focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);
  useEffect(()=>{let active=true;setFocusEvidence(null);setFocusError('');const selectedSource=focusArticle;if(!selectedSource)return;
    async function inspect(source:Article){try{
      const evidence=await topicWikidataEvidence(source);if(!active)return;setFocusEvidence(evidence);
@@ -43,6 +51,12 @@ export default function Exploration({mode,focusArticle,onRead,onReadSource,onCom
    }catch(e:any){if(active)setFocusError(e.message||'No evidence for this source');}}
    void inspect(selectedSource);return()=>{active=false;};
  },[mode,focusArticle?.language,focusArticle?.pageId,focusArticle?.revisionId]);
+ useEffect(()=>{setGeoAnswer(null);setRound(0);setPlace(null);},[geoViewId,geoSearch,geoDirection,geoDensity]);
+ useEffect(()=>{let active=true;setGeoRelations([]);setGeoRelationError('');if(mode!=='geo'||!place)return;
+  setGeoRelationBusy(true);
+  geoPlaceRelations(place.qid).then(items=>{if(active)setGeoRelations(items as GeoRelation[]);}).catch((err:any)=>{if(active)setGeoRelationError(err.message||'Original relationship evidence unavailable');}).finally(()=>{if(active)setGeoRelationBusy(false);});
+  return()=>{active=false;};
+ },[mode,place?.qid]);
  useEffect(()=>{if(mode!=='galaxy'||topic.trim().length<3){setMatches([]);return;}let active=true;const timer=setTimeout(()=>searchArticles(topic).then(x=>{if(active)setMatches(x.slice(0,6));}).catch(()=>{if(active)setMatches([]);}),350);return()=>{active=false;clearTimeout(timer);};},[mode,topic]);
  async function loadGalaxy(titleOrId:string,byId=false,via?:Edge){if(busy)return;setBusy('Expanding verified relationships…');setError('');try{
    const nextTrail=byId&&galaxy?galaxyTrailAppend(trail,galaxy,via||galaxy.edges.find(x=>x.to===titleOrId)):[] as Crumb[];
@@ -60,7 +74,19 @@ export default function Exploration({mode,focusArticle,onRead,onReadSource,onCom
   catch(e:any){setError(e.message||'No confirmed Wikipedia article exists for this item');}
   finally{setBusy('');}
  }
- function choosePlace(p:Place){setPlace(p);if(!geoQuiz||geoAnswer!==null||!target)return;const correct=p.qid===target.qid;setGeoAnswer(correct);if(correct)onComplete({mode:'geo',title:'Located '+target.title,score:100,at:new Date().toISOString(),source:target.sourceUrl});}
+ function choosePlace(p:Place){
+  if(!geoQuiz){setPlace(p);return;}
+  if(geoKind!=='locate'||geoAnswer!==null||!target||!visibleGamePlaces.some(x=>x.qid===p.qid))return;
+  const correct=p.qid===target.qid;setGeoAnswer(correct);setPlace(p);
+  if(correct)onComplete({mode:'geo',title:'Located '+target.title,score:100,at:new Date().toISOString(),source:target.sourceUrl});
+ }
+ function chooseLatitude(p:Place){
+  if(!geoQuiz||geoKind!=='latitude'||geoAnswer!==null||!latitudeQuiz||!latitudeQuiz.options.some(x=>x.qid===p.qid))return;
+  const correct=p.qid===latitudeQuiz.answer.qid;setGeoAnswer(correct);setPlace(p);
+  if(correct)onComplete({mode:'geo',title:'Original P625 latitude comparison: '+latitudeQuiz.answer.title,score:100,at:new Date().toISOString(),source:latitudeQuiz.answer.sourceUrl});
+ }
+ function startGeo(kind:'locate'|'latitude'){setGeoKind(kind);setGeoQuiz(true);setRound(0);setGeoAnswer(null);setPlace(null);}
+ function advanceGeo(){setRound(x=>x+1);setGeoAnswer(null);setPlace(null);}
  function chronoStart(){setChronoQuiz(true);setChronoAnswer(null);setOrdered(shuffleDeterministic(facts.slice(0,Math.min(facts.length,6)),String(Date.now())));}
  function chronoCheck(){const correct=isCorrectOrder(ordered);setChronoAnswer(correct);if(correct)onComplete({mode:'chronicle',title:'Ordered '+ordered.length+' historical records',score:ordered.length*20,at:new Date().toISOString(),source:'https://www.wikidata.org/'});}
  return <section className="exp">
