@@ -19,9 +19,11 @@ function entity(qid){
  if(qid==='Q90001')return {id:qid,labels:{en:{value:'scientist'}},claims:{}};
  if(qid==='Q90002')return {id:qid,labels:{en:{value:'Warsaw'}},claims:{}};
  if(qid==='Q90003')return {id:qid,labels:{en:{value:'scientific award'}},claims:{}};
+ if(/^Q910\d{2}$/.test(qid))return {id:qid,labels:{en:{value:'Recorded relationship '+qid}},claims:{}};
  const title=idToTitle[qid];if(!title)return {id:qid,missing:''};
  const claims={};
  if(people.includes(title)){claims.P106=[claim({id:'Q90001'})];claims.P19=[claim({id:'Q90002'})];claims.P166=[claim({id:'Q90003'})];}
+ if(title==='Albert Einstein')claims.P31=Array.from({length:11},(_,i)=>claim({id:'Q'+(91001+i)}));
  if(position[title])claims.P625=[claim(position[title])];
  if(birth[title])claims[events.includes(title)?'P571':'P569']=[claim({time:'+'+String(birth[title]).padStart(4,'0')+'-01-01T00:00:00Z',precision:11})];
  return {id:qid,labels:{en:{value:title}},aliases:{en:[]},claims};
@@ -179,6 +181,10 @@ try{
    await page.locator('.exp-relations-game .exp-feedback').waitFor();
    await page.getByRole('button',{name:/Another statement/}).click();
    await page.locator('.exp-connection button').first().click();await page.getByText('WIKIDATA ENTITY Q90001').waitFor();
+   await page.locator('.exp-entity-trail button').first().click();
+   await page.getByText('WIKIDATA ENTITY Q10001').waitFor();
+   await page.getByRole('button',{name:'Read verified English Wikipedia →'}).click();
+   await page.locator('.reader-toolbar h2').getByText('Marie Curie').waitFor();
    await nav('GeoWiki');await page.getByRole('button',{name:'Locate a city'}).click();
    await page.locator('.exp-place-options button').first().click();await page.getByText('Correct!',{exact:true}).waitFor();
    await nav('WikiChronicle');await page.getByText('Source-verified chronology').waitFor();
@@ -440,6 +446,24 @@ try{
    await page.locator('.topic-journey-actions').getByRole('button',{name:/Knowledge Galaxy/}).click();
    await page.locator('.exp-source-focus').getByText(/page 901/).waitFor();
    await page.getByText('WIKIDATA ENTITY Q10002').waitFor();
+   // W04: more than eight original statements must be navigable and filterable on touch and desktop.
+   await page.locator('.exp-page-controls').getByText(/of 14/).waitFor();
+   assert.equal(await page.locator('.exp-node').count(),8,'Visible graph page is bounded to eight source nodes');
+   await page.getByRole('button',{name:'Next nodes →'}).click();
+   assert.equal(await page.locator('.exp-node').count(),6,'Remaining original statements are accessible');
+   await page.getByRole('button',{name:'← Previous nodes'}).click();
+   await page.locator('.exp-facets').getByRole('button',{name:/Type & identity/}).click();
+   assert.equal(await page.locator('.exp-connection').count(),11,'Facet uses actual Wikidata P31 statements');
+   await page.locator('#galaxy-edge-search').fill('Q91003');
+   assert.equal(await page.locator('.exp-connection').count(),1,'QID search filters original statements');
+   await page.locator('.exp-node').first().press('Enter');
+   await page.locator('.exp-inspector').getByText(/Q91003/).first().waitFor();
+   await page.locator('.exp-inspector').getByRole('button',{name:/Follow recorded relationship/}).click();
+   await page.getByText('WIKIDATA ENTITY Q91003').waitFor();
+   await page.locator('.exp-entity-trail button').first().click();
+   await page.getByText('WIKIDATA ENTITY Q10002').waitFor();
+   await page.locator('#galaxy-edge-search').fill('no such item');
+   await page.locator('.exp-empty').getByText(/No source statements match/).waitFor();
    await page.locator('.topic-journey-actions').getByRole('button',{name:/GeoWiki/}).click();
    await page.locator('.exp-source-focus').getByText(/No qualifying P625 coordinate/).waitFor();
    await page.locator('.topic-journey-actions').getByRole('button',{name:/WikiChronicle/}).click();

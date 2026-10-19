@@ -111,7 +111,7 @@ export default function Exploration({mode,focusArticle,onRead,onComplete,onKnowl
        </div>
        <div className="exp-connections"><h3>Source relationships</h3>{edges.map(edge=><div key={edge.property+edge.to} className={'exp-connection '+(selectedEdge?.to===edge.to&&selectedEdge?.property===edge.property?'selected':'')}>
          <div><span className="eyebrow">{edge.label.toUpperCase()} · {edge.property}</span><strong>{edge.title}</strong><span className="exp-qid">{edge.to}</span><a href={edge.sourceUrl} target="_blank" rel="noreferrer">Inspect claim ↗</a></div>
-         <div className="exp-connection-actions"><button aria-pressed={selectedEdge?.to===edge.to&&selectedEdge?.property===edge.property} onClick={()=>{setSelectedKey(edge.property+':'+edge.to);setNodePage(Math.floor(edges.indexOf(edge)/8));}}>Inspect</button><button disabled={!!busy||trail.some(x=>x.id===edge.to)} onClick={()=>void loadGalaxy(edge.to,true,edge)}>Expand →</button></div>
+         <div className="exp-connection-actions"><button disabled={!!busy||trail.some(x=>x.id===edge.to)} onClick={()=>void loadGalaxy(edge.to,true,edge)}>Expand →</button><button aria-pressed={selectedEdge?.to===edge.to&&selectedEdge?.property===edge.property} onClick={()=>{setSelectedKey(edge.property+':'+edge.to);setNodePage(Math.floor(edges.indexOf(edge)/8));}}>Inspect</button></div>
        </div>)}{!edges.length&&<p>No verified relationships in this filter.</p>}</div>
      </div>
      <section className="exp-quiz-panel exp-relations-game"><div className="eyebrow">SOURCE-IDENTITY QUESTION / WIKIDATA P-STATEMENT</div><h3>Which relation is recorded?</h3>
