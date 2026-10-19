@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {linkSetEvidence,buildLinkOriginAudit,gradeLinkAudit,recordLinkAudit} from '../src/domain/linklab.mjs';
 import {recordLinkLab,initialProgress,readProgress,saveProgress} from '../src/services/storage.mjs';
+import {exportProgressBackup,inspectProgressBackup,commitInspectedRestore} from '../src/domain/backup.mjs';
 const page=(title,pageId,revisionId,links)=>({identity:{title,language:'en',pageId,revisionId},links});
 const a=page('Mathematics',11,111,['Physics','Astronomy','Biology','shared test','Physics']);
 const b=page('Marie Curie',22,222,['Physics','Biology','Chemistry','History','shared test']);
@@ -39,4 +40,16 @@ test('W11 rotating replay remains deterministic from unchanged original snapshot
  saveProgress(p,store);p=readProgress(store);
  assert.equal(p.linkLab[0].kind,'wikipedia-link-origin');assert.equal(p.linkLab[0].sourceIds.length,2);
  assert.equal(p.linkLab[0].ranked,false);
+});
+test('W11 v1 backup export, verified readback, and owner-controlled restore preserve new unranked original source-classification record',async()=>{
+ const q=buildLinkOriginAudit(a,b,{seed:'backup-round',target:'Astronomy'});
+ const source=recordLinkLab(initialProgress(),recordLinkAudit(q,q.answer));
+ const bytes=await exportProgressBackup(source,new Date('2026-10-19T13:00:00Z'));
+ const inspected=await inspectProgressBackup(bytes);
+ assert.equal(inspected.progress.linkLab.length,1);
+ assert.equal(inspected.progress.linkLab[0].kind,'wikipedia-link-origin');
+ assert.equal(inspected.progress.linkLab[0].ranked,false);
+ const map=new Map(),store={getItem:key=>map.get(key),setItem:(key,value)=>map.set(key,value)};
+ const restored=commitInspectedRestore(initialProgress(),inspected,'replace',store);
+ assert.equal(restored.version,1);assert.deepEqual(readProgress(store).linkLab,source.linkLab);
 });
