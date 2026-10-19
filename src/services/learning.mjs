@@ -1,25 +1,48 @@
 import {apiRequest,loadArticle,pageEntityId,normalizeWikidataEntities} from './wikimedia.mjs';
-import {pairedSitelinks,normalizeCitationRecord,citationQuestion,clozeFromParagraphs,supportedLanguage} from '../domain/learning.mjs';
+import {pairedSitelinks,originalEditionOptions,normalizeCitationRecord,citationQuestion,clozeFromParagraphs,supportedLanguage} from '../domain/learning.mjs';
 const DATA='https://www.wikidata.org/w/api.php';
-export async function loadLanguagePair(title,secondary='fr',origin='en'){
+/** Keep the original QID and optional exact pinned user article through edition switches.
+ * A different current language edition may change, but never inherits the source's revision. */
+export async function loadLanguagePair(title,secondary='fr',origin='en',pinnedArticle=null){
  if(!supportedLanguage(origin))throw new Error('Unsupported origin language');
  const qid=await pageEntityId(title,origin);
  if(!qid)throw new Error('No Wikidata identity exists for the selected topic');
- const response=await apiRequest(DATA,{action:'wbgetentities',ids:qid,props:'sitelinks',sitefilter:'enwiki|'+secondary+'wiki'},{ttl:24*60*60_000});
- const entity=normalizeWikidataEntities(response.entities)?.[qid];const sitelinks=pairedSitelinks(entity,secondary);
- const [left,right]=await Promise.all([
-   loadArticle(sitelinks.left.title,null,'en'),
-   loadArticle(sitelinks.right.title,null,secondary)
- ]);
+ return loadLanguagePairByQid(qid,secondary,pinnedArticle);
+}
+export async function loadLanguagePairByQid(qid,secondary='fr',pinnedArticle=null){
+ if(!/^Q[1-9]\\d*$/.test(qid||'')||!supportedLanguage(secondary)||secondary==='en')throw new Error('Unsupported original Wikipedia edition');
+ const sites=['en','fr','de','ko','tr'].map(x=>x+'wiki').join('|');
+ const response=await apiRequest(DATA,{action:'wbgetentities',ids:qid,props:'sitelinks',sitefilter:sites},{ttl:24*60*60_000});
+ const entity=normalizeWikidataEntities(response.entities)?.[qid];
+ const sitelinks=pairedSitelinks(entity,secondary),availableEditions=originalEditionOptions(entity);
+ if(pinnedArticle){
+  if(!supportedLanguage(pinnedArticle.language)||!Number.isSafeInteger(pinnedArticle.pageId)||pinnedArticle.pageId<=0||!Number.isSafeInteger(pinnedArticle.revisionId)||pinnedArticle.revisionId<=0)throw new Error('Pinned original article identity is invalid');
+  if((await pageEntityId(pinnedArticle.title,pinnedArticle.language))!==qid)throw new Error('Pinned article disagrees with the selected Wikidata entity');
+ }
+ async function verifiedArticle(spec){
+  const isPinned=pinnedArticle?.language===spec.language;
+  const loaded=await loadArticle(isPinned?pinnedArticle.title:spec.title,isPinned?pinnedArticle.revisionId:null,spec.language);
+  if(isPinned&&(loaded.identity.pageId!==pinnedArticle.pageId||loaded.identity.revisionId!==pinnedArticle.revisionId))throw new Error('Pinned source page or revision mismatch');
+  return loaded;
+ }
+ const [left,right]=await Promise.all([verifiedArticle(sitelinks.left),verifiedArticle(sitelinks.right)]);
  const verified=await Promise.all([pageEntityId(left.identity.title,'en'),pageEntityId(right.identity.title,secondary)]);
  if(verified[0]!==qid||verified[1]!==qid)throw new Error('Wikidata sitelinks and loaded article entities disagree; no language practice will be graded');
- return {qid,articles:{en:left,[secondary]:right},selectedLanguage:secondary,verifiedSitelinks:true,
+ return {qid,articles:{en:left,[secondary]:right},selectedLanguage:secondary,availableEditions,verifiedSitelinks:true,
    sourceUrl:'https://www.wikidata.org/wiki/'+qid,retrievedAt:new Date().toISOString()};
 }
 export function articleParagraphs(page){
  const d=new DOMParser().parseFromString(page.html,'text/html');
  for(const x of d.querySelectorAll('script,style,table,nav,.references,.reflist,.hatnote,.navbox'))x.remove();
  return [...d.querySelectorAll('p')].map(p=>p.textContent?.replace(/\[[^\]]{1,12}\]/g,'').trim()||'').filter(x=>x.length>45).slice(0,30);
+}
+/** Source-owned passage focus reuses the exact existing cloze engine and grader.
+ * No invented sentence or new scoring authority is introduced. */
+export function sourcePassageCloze(page,paragraph,seed='practice'){
+ if(typeof paragraph!=='string')return null;
+ const original=articleParagraphs(page);
+ const candidate=original.find(x=>x.normalize('NFC')===paragraph.normalize('NFC'));
+ return candidate?clozeFromParagraphs([candidate],page.identity,seed):null;
 }
 export function sourceCloze(page,seed='practice'){
  return clozeFromParagraphs(articleParagraphs(page),page.identity,seed);

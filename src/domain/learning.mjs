@@ -8,6 +8,25 @@ export function pairedSitelinks(entity,secondary){
  if(!en?.title||!other?.title||!normalizeTitle(en.title)||!normalizeTitle(other.title))throw new Error('This topic lacks articles in both selected languages');
  return {qid:entity.id,left:{language:'en',title:normalizeTitle(en.title)},right:{language:secondary,title:normalizeTitle(other.title)}};
 }
+/** Available Wikimedia sitelinks are actual language editions, never translated labels. */
+export function originalEditionOptions(entity){
+ if(!/^Q[1-9]\\d*$/.test(entity?.id||''))return [];
+ return LEARNING_LANGUAGES.flatMap(({code,name})=>{
+  const title=entity.sitelinks?.[code+'wiki']?.title;
+  return typeof title==='string'&&normalizeTitle(title)?[{language:code,name,title:normalizeTitle(title)}]:[];
+ });
+}
+/** Literal Unicode-aware matching within independently authored source paragraphs.
+ * Returns source excerpts only. A match in another edition means no translation equivalence. */
+export function originalPassageMatches(paragraphs,query='',limit=8){
+ if(!Number.isInteger(limit)||limit<1||limit>24)throw new Error('Unsupported source passage limit');
+ const text=String(query||'').trim().normalize('NFC').slice(0,100).toLocaleLowerCase();
+ return (Array.isArray(paragraphs)?paragraphs:[]).flatMap((value,index)=>{
+  const paragraph=String(value||'').replace(/\\s+/g,' ').trim().normalize('NFC');
+  if(paragraph.length<12||paragraph.length>3000||text&&!paragraph.toLocaleLowerCase().includes(text))return [];
+  return [{index,text:paragraph}];
+ }).slice(0,limit);
+}
 export function vocabularyEntry(input) {
  const {language,term,meaning,article,qid}=input||{};
  const word=String(term||'').trim().replace(/\s+/g,' ');
