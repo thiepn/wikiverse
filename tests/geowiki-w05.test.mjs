@@ -62,6 +62,6 @@ test('W05 P17 geographic relationships come from current nondeprecated Wikidata 
   const relations=await geoPlaceRelations('Q64');
   assert.equal(relations.length,1);assert.deepEqual([relations[0].property,relations[0].to,relations[0].title],['P17','Q183','Germany']);
   assert.equal(relations[0].sourceUrl,'https://www.wikidata.org/wiki/Q64#P17');
-  assert.throws(()=>geoPlaceRelations('Q64;evil'),/Invalid/);
+  await assert.rejects(()=>geoPlaceRelations('Q64;evil'),/Invalid/);
  }finally{globalThis.fetch=old;clearApiCache();}
 });
