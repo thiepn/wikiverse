@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
-import {loadLanguagePair,sourceCloze,sourceCitations,sourceQuestion} from '../services/learning.mjs';
+import {loadLanguagePair,loadLanguagePairByQid,articleParagraphs,sourcePassageCloze,sourceCloze,sourceCitations,sourceQuestion} from '../services/learning.mjs';
 import {loadArticle,searchArticles} from '../services/wikimedia.mjs';
-import {LEARNING_LANGUAGES,vocabularyEntry,gradeCloze,gradeCitation,evidenceReflection} from '../domain/learning.mjs';
+import {LEARNING_LANGUAGES,originalPassageMatches,vocabularyEntry,gradeCloze,gradeCitation,evidenceReflection} from '../domain/learning.mjs';
 import {revisionUrl} from '../domain/game.mjs';
 import {makeReaderHtml} from '../components/reader';
 import './learning.css';
@@ -24,6 +24,7 @@ export default function Learning({mode,focusArticle,onSelectSource,onVocabulary,
  const [topic,setTopic]=useState('Marie Curie');const [language,setLanguage]=useState('fr');
  const [pair,setPair]=useState<any>(null);const [active,setActive]=useState('fr');
  const [exerciseLanguage,setExerciseLanguage]=useState('fr');const [selectedClip,setSelectedClip]=useState<any>(null);
+ const [passageQuery,setPassageQuery]=useState('');const [passageFocus,setPassageFocus]=useState<{language:string;index:number}|null>(null);const [passageNotice,setPassageNotice]=useState('');
  const [word,setWord]=useState('');const [meaning,setMeaning]=useState('');const [captureLanguage,setCaptureLanguage]=useState('fr');
  const [item,setItem]=useState<any>(null);const [choice,setChoice]=useState<string|null>(null);const [round,setRound]=useState(0);
  const [evidencePage,setEvidencePage]=useState<Page|null>(null);const [citations,setCitations]=useState<any[]>([]);const [question,setQuestion]=useState<any>(null);const [citationChoice,setCitationChoice]=useState<string|null>(null);const [index,setIndex]=useState(0);const [reviewId,setReviewId]=useState('');
@@ -32,15 +33,38 @@ export default function Learning({mode,focusArticle,onSelectSource,onVocabulary,
  const selectedRecord=citations.find(x=>x.id===reviewId)||citations[0];
  const pairedLanguage=pair?.selectedLanguage||language;
  const readPage=(pair:any,lang:string)=>pair?.articles?.[lang];
+ const passageViews=useMemo(()=>{
+  if(mode!=='polyglot'||!pair)return [];
+  return ['en',pair.selectedLanguage].map(lang=>{
+   const page=readPage(pair,lang),paragraphs=page?articleParagraphs(page):[];
+   return {language:lang,page,paragraphs,matches:originalPassageMatches(paragraphs,passageQuery,10)};
+  });
+ },[pair,mode,passageQuery]);
+ const chosenPassage=passageViews.find(x=>x.language===passageFocus?.language)?.matches.find(x=>x.index===passageFocus?.index)||null;
  function nextCloze(pairValue:any,lang:string,n:number){const page=readPage(pairValue,lang);setItem(page?sourceCloze(page,String(n)):null);setChoice(null);}
  async function fetchPair(name:string,lang:string,origin='en'){
   const n=++operation.current;setBusy('Finding Wikidata-linked language editions…');setError('');
-  try{const loaded=await loadLanguagePair(name,lang,origin);
+  try{const loaded=await loadLanguagePair(name,lang,origin,focusArticle&&name===focusArticle.title?focusArticle:null);
    if(focusArticle&&name===focusArticle.title){const linked=loaded.articles?.[focusArticle.language];if(!linked||linked.identity.pageId!==focusArticle.pageId)throw new Error('Loaded language edition does not match selected original Wikipedia page');}
    if(n!==operation.current)return;
-   setPair(loaded);setActive(lang);setCaptureLanguage(lang);setWord('');setMeaning('');setLanguage(lang);setRound(0);setExerciseLanguage(lang);setSelectedClip(null);nextCloze(loaded,lang,0);
+   setPair(loaded);setActive(lang);setCaptureLanguage(lang);setWord('');setMeaning('');setLanguage(lang);setRound(0);setExerciseLanguage(lang);setSelectedClip(null);setPassageQuery('');setPassageFocus(null);setPassageNotice('');nextCloze(loaded,lang,0);
   }catch(e:any){if(n===operation.current)setError(e.message||'Language pair unavailable');}
   finally{if(n===operation.current)setBusy('');}
+ }
+ async function switchEdition(lang:string){
+  if(!pair||lang==='en'||lang===pair.selectedLanguage||!pair.availableEditions?.some((x:any)=>x.language===lang))return;
+  const n=++operation.current;setBusy('Verifying '+lang.toUpperCase()+' original Wikipedia edition…');setError('');
+  try{const next=await loadLanguagePairByQid(pair.qid,lang,focusArticle||null);
+   if(n!==operation.current)return;
+   setPair(next);setLanguage(lang);setActive(lang);setCaptureLanguage(lang);setExerciseLanguage(lang);setRound(0);setWord('');setMeaning('');setSelectedClip(null);setPassageFocus(null);setPassageQuery('');setPassageNotice('');nextCloze(next,lang,0);
+  }catch(e:any){if(n===operation.current)setError(e.message||'Original language edition unavailable');}finally{if(n===operation.current)setBusy('');}
+ }
+ function inspectPassage(lang:string,index:number){setPassageFocus({language:lang,index});setActive(lang);setCaptureLanguage(lang);setPassageNotice('');}
+ function practiceOriginalPassage(lang:string,text:string){
+  const page=readPage(pair,lang);
+  const q=page?sourcePassageCloze(page,text,'w07:passage:'+lang+':'+round):null;
+  if(!q){setPassageNotice('This original passage cannot produce a fair source-word question. Select another.');return;}
+  setItem(q);setChoice(null);setExerciseLanguage(lang);setRound(n=>n+1);setPassageNotice('Original sentence practice loaded below.');
  }
  async function fetchEvidence(name:string,source?:Article|null){
   const n=++operation.current;setBusy('Retrieving Wikipedia article and citations…');setError('');setEvidencePage(null);
@@ -93,9 +117,22 @@ export default function Learning({mode,focusArticle,onSelectSource,onVocabulary,
    </form>
    {mode==='polyglot'&&pair&&<>
      <div className="learn-source-bar"><span><b>{pair.qid}</b> · Independently verified Wikidata-linked topic</span><a href={pair.sourceUrl} target="_blank" rel="noreferrer">Inspect article pairing ↗</a>{onSelectSource&&<button onClick={()=>onSelectSource(pair.articles[active].identity)}>Use this {active.toUpperCase()} source across WikiVerse →</button>}</div>
-     <p className="learn-honesty">These are independent articles about the same Wikidata entity, not sentence-aligned translations.</p>
+     <div className="learn-edition-navigation" aria-label="Verified Wikipedia editions"><label>Original language edition</label><div className="learn-edition-options">{(pair.availableEditions||[]).filter((x:any)=>x.language!=='en').map((edition:any)=><button key={edition.language} disabled={!!busy} aria-pressed={pairedLanguage===edition.language} onClick={()=>void switchEdition(edition.language)}>{edition.name}</button>)}</div><span>EN revision {pair.articles.en.identity.revisionId} · {pairedLanguage.toUpperCase()} revision {pair.articles[pairedLanguage].identity.revisionId}</span></div>
+     <p className="learn-honesty">Same Wikidata entity; independently written articles, not translations or aligned paragraphs.</p>
      <div className="learn-mobile-tabs"><button className={active==='en'?'active':''} onClick={()=>setActive('en')}>EN · {pair.articles.en.identity.title}</button><button className={active===pairedLanguage?'active':''} onClick={()=>setActive(pairedLanguage)}>{pairedLanguage.toUpperCase()} · {pair.articles[pairedLanguage].identity.title}</button></div>
      <div className="learn-panes"><SourcePane page={pair.articles.en} selected={active==='en'} onSelect={()=>selectionOf('en')}/><SourcePane page={pair.articles[pairedLanguage]} selected={active===pairedLanguage} onSelect={()=>selectionOf(pairedLanguage)}/></div>
+     <section className="learn-passage-explorer" aria-label="Original passage comparison">
+      <div className="learn-passage-bar"><h2>Compare original passages</h2><div><label htmlFor="learn-passage-query">Find exact source text</label><input id="learn-passage-query" type="search" maxLength={100} value={passageQuery} onChange={ev=>{setPassageQuery(ev.target.value);setPassageFocus(null);setPassageNotice('');}} placeholder="Original word or phrase"/></div></div>
+      <div className="learn-passage-columns">{passageViews.map(view=><div key={view.language} className="learn-passage-edition" lang={view.language}>
+       <div className="learn-passage-heading"><h3>{view.language.toUpperCase()} · {view.page.identity.title}</h3><a href={revisionUrl(view.page.identity)} target="_blank" rel="noreferrer">Revision {view.page.identity.revisionId} ↗</a></div>
+       <div className="learn-passage-list">{view.matches.length?view.matches.map(match=><article key={match.index} className={passageFocus?.language===view.language&&passageFocus.index===match.index?'selected':''}><div className="learn-passage-source">Source paragraph {match.index+1}</div><p>{match.text}</p><div className="learn-passage-actions">
+         <button aria-pressed={passageFocus?.language===view.language&&passageFocus.index===match.index} onClick={()=>inspectPassage(view.language,match.index)}>Inspect</button>
+         <button onClick={()=>practiceOriginalPassage(view.language,match.text)}>Practice exact words →</button>
+         <button disabled={match.text.length<12||match.text.length>360} onClick={()=>{onClip({article:view.page.identity,excerpt:match.text});setPassageNotice('Original '+view.language.toUpperCase()+' excerpt saved locally.');}}>Save excerpt</button>
+       </div></article>):<p>No matching original passage in this edition.</p>}</div></div>)}</div>
+      {chosenPassage&&<p className="learn-passage-selected" role="status">Selected {passageFocus?.language.toUpperCase()} source paragraph {chosenPassage.index+1}; not a translation of another paragraph.</p>}
+      {passageNotice&&<p className="learn-passage-selected" role="status">{passageNotice}</p>}
+     </section>
      <div className="learn-exercises">
        <section className="learn-panel">
         <div className="eyebrow">VOCABULARY COLLECTION</div><h2>Capture a phrase</h2><p>Enter your own meaning; no translation is generated.</p>
