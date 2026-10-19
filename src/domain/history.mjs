@@ -42,6 +42,68 @@ export function pulseSummary(series){
  const changePct=firstMean>0&&lastMean!==null?Math.round(1000*(lastMean-firstMean)/firstMean)/10:null;
  return {total,max,mean:Math.round(total/points.length),changePct,observedDays:points.length};
 }
+/** W09 complete UTC window grid. Null denotes a missing original observation, never zero. */
+export function pulseCalendar(series){
+ if(!Array.isArray(series)||!series.length)return [];
+ const stamps=series.flatMap(s=>[s.start,s.end]);
+ if(stamps.some(x=>typeof x!=='string'||!/^\\d{8}$/.test(x)))throw new Error('Missing original Wikimedia pageview window');
+ const start=stamps.sort()[0],end=stamps.at(-1),iso=x=>x.slice(0,4)+'-'+x.slice(4,6)+'-'+x.slice(6,8);
+ const from=Date.parse(iso(start)+'T00:00:00Z'),to=Date.parse(iso(end)+'T00:00:00Z');
+ if(!Number.isFinite(from)||!Number.isFinite(to)||to<from||(to-from)/UTC_DAY>100)throw new Error('Unsupported source day range');
+ return Array.from({length:Math.round((to-from)/UTC_DAY)+1},(_,i)=>{
+  const date=new Date(from+i*UTC_DAY).toISOString().slice(0,10);
+  return {date,values:series.map(s=>{
+   const exact=(s.points||[]).find(p=>p.date===date);
+   return {id:s.language+':'+s.title,title:s.title,language:s.language,views:exact?.views??null,source:s.source};
+  })};
+ });
+}
+/** Never connect line segments across absent UTC observations. */
+export function pulseObservedSegments(series,calendar=pulseCalendar([series])){
+ const lookup=new Map((series?.points||[]).map(p=>[p.date,p.views]));
+ const segments=[];let current=[];
+ for(const row of calendar){
+  const n=lookup.get(row.date);
+  if(!Number.isSafeInteger(n)||n<0){if(current.length)segments.push(current);current=[];continue;}
+  current.push({date:row.date,views:n});
+ }
+ if(current.length)segments.push(current);
+ return segments;
+}
+/** Equal-duration windows: source totals and observed-day means remain visible;
+ * percentages only when BOTH windows contain every expected original observation. */
+export function pulsePeriodComparison(series,kind='halves'){
+ if(!Array.isArray(series)||!series.length||!['halves','week'].includes(kind))throw new Error('Unsupported pageview comparison window');
+ const calendar=pulseCalendar(series);
+ if(calendar.length<14)throw new Error('Insufficient source date window');
+ const length=kind==='week'?7:Math.floor(calendar.length/2);
+ const earlier=calendar.slice(0,length),later=calendar.slice(-length);
+ return {kind,days:length,earlier:{start:earlier[0].date,end:earlier.at(-1).date},later:{start:later[0].date,end:later.at(-1).date},
+  articles:series.map(s=>{
+   const id=s.language+':'+s.title;
+   const measure=rows=>{
+    const found=rows.map(r=>r.values.find(v=>v.id===id)?.views).filter(v=>Number.isSafeInteger(v)&&v>=0);
+    const total=found.reduce((a,b)=>a+b,0);
+    return {total,observedDays:found.length,expectedDays:rows.length,mean:found.length?Math.round(100*total/found.length)/100:null,complete:found.length===rows.length};
+   };
+   const a=measure(earlier),b=measure(later);
+   const comparable=a.complete&&b.complete&&a.mean>0;
+   return {id,title:s.title,language:s.language,source:s.source,earlier:a,later:b,
+    changePct:comparable?Math.round(10*100*(b.mean-a.mean)/a.mean)/10:null,
+    reason:!a.complete||!b.complete?'Missing API observations prevent a complete-window percentage':a.mean===0?'Zero baseline prevents a percentage':null};
+  })};
+}
+/** One selected day, with missing data visibly unknown and no invented winner. */
+export function pulseDayEvidence(series,date){
+ if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(date||''))throw new Error('Select a valid UTC source date');
+ const row=pulseCalendar(series).find(x=>x.date===date);
+ if(!row)throw new Error('Date is outside the retrieved original window');
+ const observed=row.values.filter(v=>v.views!==null);
+ const top=Math.max(...observed.map(v=>v.views));
+ const leaders=observed.filter(v=>v.views===top);
+ return {...row,observed:observed.length,missing:row.values.length-observed.length,
+  uniqueLeader:observed.length===row.values.length&&leaders.length===1?leaders[0]:null};
+}
 export function pulseLeaders(series){return [...series].sort((a,b)=>pulseSummary(b).total-pulseSummary(a).total||a.title.localeCompare(b.title));}
 export function pulseQuiz(series,index=0){
  if(!Array.isArray(series)||series.length<2)return null;
