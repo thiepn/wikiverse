@@ -55,7 +55,6 @@ export default function LinkLab({onComplete,onReadSource,onStudySource,onChooseS
   }catch(err:any){setError(err.message||'This original link cannot be used in a challenge');}
  }
  const q=exercise==='common'?challenge?.common:exercise==='origin'?challenge?.origin:challenge?.question;
- const currentArticle=(side:0|1):SourceArticle|null=>challenge?.pages?.[side]?.identity||null;
  return <section className="linklab">
   <div className="mode-head"><h1>Link Lab</h1></div>
   {busy&&<div className="loading" role="status">{busy}</div>}

@@ -166,9 +166,25 @@ try{
    await page.getByRole('button',{name:/Generate sourced question/}).click();
    await page.locator('.linklab-choices button').first().waitFor();
    assert.equal(await page.locator('.linklab-choices button').count(),4,'All link choices from real revisions');
+   // W11: source-set classifications, exact original links, an independently graded
+   // third question style, and correct original evidence for each result.
+   await page.locator('.linklab-link-set>div').first().waitFor();
+   await page.locator('.linklab-linkcounts').getByRole('button',{name:/Both \(/}).click();
+   assert.ok((await page.locator('.linklab-link-set>div').count())>=1,'At least one original shared link is inspectable');
+   await page.locator('.linklab-linkcounts').getByRole('button',{name:/All \(/}).click();
+   await page.locator('#linklab-find').fill('Biology');
+   await page.waitForFunction(()=>document.querySelectorAll('.linklab-link-set>div').length===1);
+   await page.locator('.linklab-link-set').getByRole('button',{name:/Practice this link/}).click();
+   await page.getByRole('heading',{name:/Which pinned source links to Biology/}).waitFor();
+   assert.equal(await page.locator('.linklab-choices button').count(),3);
+   await page.locator('.linklab-choices button').nth(1).click();
+   await page.locator('.linklab-result').getByText('Correct source classification.').waitFor();
+   await page.locator('.linklab-answer-evidence').getByText('Biology').waitFor();
+   assert.equal(await page.locator('.linklab-answer-evidence a').count(),2,'Original pinned page sources remain inspectable');
+   await page.getByRole('button',{name:/Which link belongs/}).click();
    await page.locator('.linklab-choices button').filter({hasText:'Biology'}).click();
    await page.locator('.linklab-result').waitFor();
-   await page.getByText(/Not linked from this revision/).waitFor();
+   await page.getByText('Incorrect source classification.').waitFor();
    await page.getByRole('button',{name:/Another source question/}).click();
    await page.locator('.linklab-choices button').first().waitFor();
    await page.getByRole('button',{name:/What do both link to/}).click();
@@ -183,6 +199,8 @@ try{
    await page.locator('.linklab-choices button').first().click();
    await page.getByRole('button',{name:/Replay pinned source pair/}).click();
    await page.getByText(/ARCHIVED SOURCE REVIEW/).waitFor();
+   await page.locator('.linklab-sources').getByRole('button',{name:/Read pinned revision/}).first().click();
+   await page.locator('.reader-toolbar').getByRole('heading',{name:'Mathematics'}).waitFor();
    await nav('WikiMystery');await page.getByRole('button',{name:/Start mystery/}).click();
    const qid=await page.locator('.mystery-grid .eyebrow').first().textContent();
    const answer=idToTitle[(qid||'').match(/Q\d+/)?.[0]];

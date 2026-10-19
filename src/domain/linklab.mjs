@@ -62,6 +62,7 @@ export function linkSetEvidence(primary,contrast,{query='',filter='all',limit=80
 }
 /** Third independent Link Lab task: classify a real outgoing title by source membership.
  * The original q.answer/choices contract and single grader remain authoritative. */
+/** @param {any} primary @param {any} contrast @param {{seed?:string,target?:string|null}} [options] */
 export function buildLinkOriginAudit(primary,contrast,{seed='link-origin',target=null}={}){
  const evidence=linkSetEvidence(primary,contrast,{limit:120});
  // Target must be in original evidence; never synthesize a title or target revision.
