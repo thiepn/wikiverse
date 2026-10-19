@@ -99,6 +99,7 @@ function App(){
   const [results,setResults]=useState<any[]>([]);
   const [mobileNav,setMobileNav]=useState(false);
   const [studyFocus,setStudyFocus]=useState<Page['identity']|null>(null);
+  const [galaxyEntryQid,setGalaxyEntryQid]=useState<string|null>(null);
   const [journeySource,setJourneySource]=useState<Page['identity']|null>(null);
   const [modeFocus,setModeFocus]=useState<{mode:Screen;article:Page['identity']}|null>(null);
   const op=useRef(0);
@@ -107,7 +108,7 @@ function App(){
   const stats=progressSummary(progress);
   const raceDone=progress.races.some((r:any)=>r.dailyKey===TODAY);
   const mysteryDone=progress.mysteries.some((r:any)=>r.dailyKey===TODAY);
-  function move(next:Screen){op.current++;setScreen(next);setMobileNav(false);setError('');setBusy('');setModeFocus(null);if(next==='study')setStudyFocus(null);}
+  function move(next:Screen){op.current++;setScreen(next);setMobileNav(false);setError('');setBusy('');setModeFocus(null);if(next!=='galaxy')setGalaxyEntryQid(null);if(next==='study')setStudyFocus(null);}
   function openSourceStudy(article:Page['identity']){const canonical=topicSource(article);setJourneySource(canonical);move('study');setStudyFocus(canonical);}
   function openJourney(mode:string){
     if(!journeySource)return;
@@ -255,7 +256,7 @@ function App(){
           {!discover?<><div className="section-head"><h2>Start somewhere</h2></div><div className="topics">{STARTERS.map(x=><button onClick={()=>read(x)} key={x}>{x} ↗</button>)}</div></>:
           <div className="reader-wrap"><div className="reader-toolbar"><div><div className="eyebrow">ARTICLE</div><h2>{discover.identity.title}</h2></div><div className="actions"><button onClick={()=>toggle(discover.identity)}>{saved(discover.identity)?'✓ Saved':'＋ Save'}</button>{discover.identity.language==='en'&&<button onClick={()=>practiceLinks(discover.identity.title)}>Practice source links →</button>}<button onClick={()=>openSourceStudy(discover.identity)}>Study this article →</button></div></div><Article page={discover} onTravel={title=>read(title,discover.identity,discover.identity.language)} onClip={(article,excerpt)=>setProgress((p:any)=>saveSourceClip(p,{article,excerpt}))} onOffline={saveOffline}/><button className="text-action" onClick={()=>setDiscover(null)}>← All topics</button></div>}
         </section>}
-        {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} focusArticle={modeFocus?.mode===screen?modeFocus.article:null} onRead={read} onReadSource={article=>{void read(article.title,null,article.language,article.revisionId);}} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
+        {(screen==='galaxy'||screen==='geo'||screen==='chronicle')&&<Exploration key={screen} mode={screen} focusArticle={modeFocus?.mode===screen?modeFocus.article:null} initialQid={screen==='galaxy'?galaxyEntryQid:null} onExploreQid={qid=>{move('galaxy');setGalaxyEntryQid(qid);}} onRead={read} onReadSource={article=>{void read(article.title,null,article.language,article.revisionId);}} onComplete={result=>setProgress((p:any)=>recordExploration(p,result))} onKnowledge={entry=>setProgress((p:any)=>recordKnowledgeAttempt(p,entry))}/>}
         {(screen==='polyglot'||screen==='detective')&&<Learning key={screen} mode={screen} focusArticle={modeFocus?.mode===screen?modeFocus.article:null} onSelectSource={article=>setJourneySource(topicSource(article))} onVocabulary={entry=>setProgress((p:any)=>saveVocabulary(p,entry))} onResult={entry=>setProgress((p:any)=>recordLearning(p,entry))} onReflection={entry=>setProgress((p:any)=>recordEvidenceReview(p,entry))} onClip={(entry:any)=>setProgress((p:any)=>saveSourceClip(p,entry))} onOffline={(page:any)=>saveOffline(page,makeReaderHtml(page).html)}/>}
         {(screen==='pulse'||screen==='capsule')&&<HistoryExplorer key={screen} mode={screen} onRead={read} onComplete={result=>setProgress((p:any)=>recordHistoryChallenge(p,result))}/>}
         {screen==='backup'&&<BackupCenter progress={progress} onCommit={(inspection,mode)=>{const restored=commitInspectedRestore(currentProgress.current,inspection,mode,window.localStorage);setProgress(restored);}}/>}
