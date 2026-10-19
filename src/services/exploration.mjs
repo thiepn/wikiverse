@@ -57,7 +57,7 @@ export async function sourceCatalog(topics, project){
 /** Inspect only real P17/P131 current Wikidata statements on a source location.
  * Not a coordinate calculation or a guessed national/administrative boundary. */
 export async function geoPlaceRelations(qid){
- if(!/^Q[1-9]\\d*$/.test(qid||''))throw new Error('Invalid Wikidata place QID');
+ if(!/^Q[1-9]\d*$/.test(qid||''))throw new Error('Invalid Wikidata place QID');
  const root=(await loadEntities([qid]))[qid];
  if(!root||root.missing)throw new Error('Selected Wikidata place unavailable');
  const refs=linkStatements(root,24).filter(item=>item.property==='P17'||item.property==='P131').slice(0,6);
