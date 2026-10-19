@@ -101,13 +101,29 @@ try{
    page.on('pageerror',e=>issues.push(e.message));
    await page.goto('http://127.0.0.1:4173',{waitUntil:'domcontentloaded'});
    await page.getByRole('heading',{name:'Explore',exact:true}).waitFor();
-   async function nav(name){if(mode==='mobile')await page.getByRole('button',{name:'Toggle navigation'}).click();await page.locator('nav button').filter({hasText:name}).click();}
+   async function inspectRenderedScreen(label){
+    const metric=await page.evaluate(()=>{
+     const w=innerWidth,scroll=document.documentElement.scrollWidth;
+     const headings=[...document.querySelectorAll('main h1')].filter(x=>x.getBoundingClientRect().height>0).map(x=>x.textContent.trim());
+     const labels=[...document.querySelectorAll('main small,main .eyebrow,main label,main .universe-mode-desc,main .topic-journey p')]
+      .filter(x=>{const b=x.getBoundingClientRect();return b.width&&b.height&&!x.closest('.article-body,.learn-article')});
+     const tiny=labels.filter(x=>parseFloat(getComputedStyle(x).fontSize)<13.9).map(x=>x.textContent.trim().slice(0,50));
+     return {w,scroll,headings,tiny:tiny.slice(0,8)};
+    });
+    assert.ok(metric.scroll<=metric.w+1,label+' horizontal overflow '+JSON.stringify(metric));
+    assert.deepEqual(metric.tiny,[],label+' unreadable small UI text');
+    assert.ok(metric.headings.length,label+' missing main heading');
+   }
+   async function nav(name){if(mode==='mobile')await page.getByRole('button',{name:'Toggle navigation'}).click();await page.locator('nav button').filter({hasText:name}).click();await inspectRenderedScreen(name);}
+   await inspectRenderedScreen('Explore');
    // W01 real navigation: all five destinations are accessible before individual game modes.
    await page.getByRole('heading',{name:'Explore',exact:true}).waitFor();
    await page.locator('.universe-primary-tabs').getByRole('button',{name:'Play'}).click();
-   await page.getByRole('heading',{name:'Play with real sources.'}).waitFor();
+   await inspectRenderedScreen('Play');
+   await page.getByRole('heading',{name:'Play',exact:true}).waitFor();
    await page.locator('.universe-primary-tabs').getByRole('button',{name:'Learn'}).click();
-   await page.getByRole('heading',{name:'Turn curiosity into knowledge.'}).waitFor();
+   await inspectRenderedScreen('Learn');
+   await page.getByRole('heading',{name:'Learn',exact:true}).waitFor();
    await page.locator('.universe-primary-tabs').getByRole('button',{name:'Discover'}).click();
    await page.getByRole('heading',{name:/Discover/}).waitFor();
    await page.locator('.universe-primary-tabs').getByRole('button',{name:'My Universe'}).click();
@@ -119,20 +135,20 @@ try{
    await page.getByRole('button',{name:/Generate verified route/}).click();
    await page.locator('.article-body a[data-article-title="Physics"]').click();
    await page.locator('.article-body a[data-article-title="History"]').click();
-   await page.getByText('You found the path.').waitFor();
+   await page.getByText('Destination reached').waitFor();
    // W03: original route lengths, immutable replay and revision-backed proof links.
    assert.equal(await page.locator('.race-proof-sources a').count(),3);
    const pinnedBefore=await page.locator('.race-proof-sources a').first().getAttribute('href');
    await page.getByRole('button',{name:/Replay same pinned route/}).click();
    await page.locator('.article-body a[data-article-title="Physics"]').click();
    await page.locator('.article-body a[data-article-title="History"]').click();
-   await page.getByText('You found the path.').waitFor();
+   await page.getByText('Destination reached').waitFor();
    assert.equal(await page.locator('.race-proof-sources a').first().getAttribute('href'),pinnedBefore);
    await page.getByRole('button',{name:/Leave race/}).click();
    await page.locator('#race-hops').selectOption('1');
    await page.getByRole('button',{name:/Generate verified route/}).click();
    await page.locator('.article-body a[data-article-title="Physics"]').click();
-   await page.getByText('You found the path.').waitFor();
+   await page.getByText('Destination reached').waitFor();
    assert.equal(await page.locator('.race-proof-sources a').count(),2);
    await page.getByRole('button',{name:/Leave race/}).click();
    await page.locator('#race-hops').selectOption('3');
@@ -143,7 +159,7 @@ try{
    const route=proofText.split('route: ')[1].split(' → ').slice(1);
    assert.equal(route.length,3);
    for(const title of route)await page.locator('.article-body a[data-article-title="'+title+'"]').click();
-   await page.getByText('You found the path.').waitFor();
+   await page.getByText('Destination reached').waitFor();
    assert.equal(await page.locator('.race-proof-sources a').count(),4);
    await nav('Link Lab');
    await page.getByRole('button',{name:/Generate sourced question/}).click();
