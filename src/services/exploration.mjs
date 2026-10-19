@@ -1,7 +1,7 @@
 import {pageEntityId,loadEntities,loadArticle,apiRequest,normalizeWikidataEntities} from './wikimedia.mjs';
 import {checkedArticle} from '../domain/study.mjs';
 import {exactSource} from '../domain/journey.mjs';
-import {RELATIONS,GEO_TOPICS,CHRONICLE_TOPICS,linkStatements,englishLabel,coordinate,chronologicalFact,chronologicalOrder} from '../domain/exploration.mjs';
+import {RELATIONS,GEO_TOPICS,CHRONICLE_TOPICS,linkStatements,englishLabel,coordinate,chronologicalFact,chronologicalOrder,chronicleStatements,chronicleVisible} from '../domain/exploration.mjs';
 const DATA='https://www.wikidata.org/w/api.php';
 /** Wikidata is today’s associated item, not the pinned Wikipedia page ID or historical claim. */
 export async function topicWikidataEvidence(input){
@@ -72,6 +72,22 @@ export async function loadGeoCatalog(){
  });
  if(records.length<3)throw new Error('Not enough source-verified places are available.');
  return records;
+}
+/** Original W06 date timeline; no de-duplication by year or guessed precision.
+ * Each record keeps its Wikidata QID, P-property, claim ID, and source article title. */
+export async function loadChronicleStatements(){
+ const records=await sourceCatalog(CHRONICLE_TOPICS,(entity,articleTitle)=>chronicleStatements(entity).map(row=>({...row,articleTitle})));
+ const flat=records.flat();
+ if(flat.length<4)throw new Error('Not enough original date statements are available for a timeline');
+ return chronicleVisible(flat);
+}
+/** Only the currently resolved W02 topic entity is eligible; not a historical inference
+ * about a pinned old Wikipedia revision, and not automatically graded as a catalog event. */
+export async function chronicleTopicStatements(qid){
+ if(!/^Q[1-9]\d*$/.test(qid||''))throw new Error('Invalid original Wikidata topic QID');
+ const entity=(await loadEntities([qid]))[qid];
+ if(!entity||entity.missing)throw new Error('Current source entity unavailable');
+ return chronicleStatements(entity);
 }
 export async function loadChronicle(){
  const records=await sourceCatalog(CHRONICLE_TOPICS,(entity,articleTitle)=>{

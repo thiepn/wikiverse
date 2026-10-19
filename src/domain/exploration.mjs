@@ -145,6 +145,57 @@ export function chronologicalFact(entity){
  }
  return null;
 }
+/** W06: each eligible original non-deprecated Wikidata time statement remains distinct.
+ * Interpret only CE, unambiguous calendar years (9+) and retain the source's granularity.
+ * The old Chronicle first-fact selector and progress contract remain unchanged. */
+export function chronicleStatements(entity){
+ if(!validQid(entity?.id))return [];
+ const rows=[];
+ for(const [property,type] of Object.entries(CHRONICLE_PROPERTIES)){
+  for(const [index,claim] of (entity.claims?.[property]||[]).entries()){
+   if(claim.rank==='deprecated'||claim.mainsnak?.snaktype!=='value')continue;
+   const v=claim.mainsnak?.datavalue?.value;
+   if(!v||typeof v.time!=='string'||![9,10,11].includes(v.precision)||Number(v.before||0)!==0||Number(v.after||0)!==0)continue;
+   const m=v.time.match(/^\+(\d{4,})-(\d{2})-(\d{2})T00:00:00Z$/);
+   if(!m)continue;
+   const year=Number(m[1]),month=Number(m[2]),day=Number(m[3]);
+   if(!Number.isSafeInteger(year)||year<1||year>3000)continue;
+   if(v.precision>=10&&(month<1||month>12))continue;
+   if(v.precision>=11&&(day<1||day>31||!Number.isFinite(Date.UTC(year,month-1,day))))continue;
+   const calendar=v.calendarmodel==='http://www.wikidata.org/entity/Q1985727'?'Gregorian':v.calendarmodel==='http://www.wikidata.org/entity/Q1985786'?'Julian':'source-specified / unspecified';
+   const claimId=typeof claim.id==='string'?claim.id:null;
+   rows.push({id:entity.id+':'+property+':'+index,qid:entity.id,title:englishLabel(entity),property,type,year,precision:v.precision,month:v.precision>=10?month:null,day:v.precision>=11?day:null,calendar,claimId,sourceUrl:'https://www.wikidata.org/wiki/'+entity.id+'#'+property});
+  }
+ }
+ return rows;
+}
+/** Filters are over original evidence only: date ranges are inclusive CE years.
+ * Year/century labels are a UI grouping, not more precise claims. */
+export function chronicleVisible(records,{property='all',query='',fromYear=null,toYear=null}={}){
+ const term=String(query||'').trim().toLocaleLowerCase('en').slice(0,120);
+ return (Array.isArray(records)?records:[]).filter(row=>{
+  if(!validQid(row?.qid)||!CHRONICLE_PROPERTIES[row.property]||!Number.isSafeInteger(row.year)||row.year<1||row.year>3000||row.precision<9||row.precision>11)return false;
+  if(property!=='all'&&row.property!==property)return false;
+  if(fromYear!==null&&row.year<fromYear)return false;
+  if(toYear!==null&&row.year>toYear)return false;
+  return !term||[row.title,row.type,row.property,row.qid,String(row.year)].some(v=>String(v).toLocaleLowerCase('en').includes(term));
+ }).sort((a,b)=>a.year-b.year||a.qid.localeCompare(b.qid)||a.property.localeCompare(b.property)||a.id.localeCompare(b.id));
+}
+export function chroniclePropertyCounts(records){
+ const counts=new Map();
+ for(const row of chronicleVisible(records))counts.set(row.property,(counts.get(row.property)||0)+1);
+ return [...counts].map(([property,count])=>({property,label:CHRONICLE_PROPERTIES[property],count}));
+}
+/** Truth comparison is restricted to actually distinct year observations. */
+export function chronicleExtremeChallenge(records,seed,{direction='earliest',count=3}={}){
+ if(!['earliest','latest'].includes(direction)||![3,4].includes(count))throw new Error('Unsupported original chronological comparison');
+ const years=new Map();
+ for(const record of chronicleVisible(records)){if(!years.has(record.year))years.set(record.year,record);}
+ if(years.size<count)throw new Error('Not enough independently dated years for this challenge');
+ const selected=[...years.values()].sort((a,b)=>hashSeed(String(seed)+':'+a.id)-hashSeed(String(seed)+':'+b.id)||a.id.localeCompare(b.id)).slice(0,count);
+ const ordered=[...selected].sort((a,b)=>direction==='earliest'?a.year-b.year:b.year-a.year);
+ return {kind:'wikidata-year-comparison',direction,options:selected,answer:ordered[0],ranked:false,authority:'original Wikidata year, not certification'};
+}
 export function chronologicalOrder(items){return [...items].sort((a,b)=>a.year-b.year||a.qid.localeCompare(b.qid));}
 export function isCorrectOrder(items){const sorted=chronologicalOrder(items);return items.length>=3&&items.every((x,i)=>x.qid===sorted[i].qid);}
 export function shuffleDeterministic(items,seed){
