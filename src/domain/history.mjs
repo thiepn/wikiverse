@@ -139,6 +139,37 @@ export function paragraphChanges(earlier,later,limit=15){
  const removed=old.filter(x=>!nowSet.has(x)),added=now.filter(x=>!oldSet.has(x));
  return {from:earlier.identity,to:later.identity,added:added.slice(0,limit),removed:removed.slice(0,limit),addedCount:added.length,removedCount:removed.length,method:'exact-paragraph-presence',truncated:added.length>limit||removed.length>limit};
 }
+/** Original revision text is evidence of literal paragraph presence, not intent, truth or edit causation.
+ * Both original revisions are required; source IDs must match the history's identity. */
+export function revisionEvidence(earlier,later,limit=40){
+ if(!Number.isInteger(limit)||limit<1||limit>80)throw new Error('Unsupported original revision evidence limit');
+ const a=earlier?.identity,b=later?.identity;
+ if(!a||!b||a.language!==b.language||a.pageId!==b.pageId||a.revisionId===b.revisionId||
+    !Number.isSafeInteger(a.revisionId)||a.revisionId<=0||!Number.isSafeInteger(b.revisionId)||b.revisionId<=0)
+  throw new Error('Original revision evidence requires distinct revisions of the same Wikipedia page');
+ if(!Array.isArray(earlier.paragraphs)||!Array.isArray(later.paragraphs))throw new Error('Missing original source paragraph evidence');
+ const clean=x=>String(x||'').replace(/\s+/g,' ').trim();
+ const from=earlier.paragraphs.map(clean).filter(x=>x.length>=22&&x.length<=1500);
+ const to=later.paragraphs.map(clean).filter(x=>x.length>=22&&x.length<=1500);
+ const fromSet=new Set(from),toSet=new Set(to);
+ const make=(rows,other)=>rows.map((text,index)=>({id:String(index)+':'+a.pageId,position:index+1,text,status:other.has(text)?'present-in-both':'only-in-this-revision'}));
+ return {identity:{language:a.language,pageId:a.pageId,title:a.title||b.title||'',earlierId:a.revisionId,laterId:b.revisionId},
+  before:make(from,toSet).slice(0,limit),after:make(to,fromSet).slice(0,limit),
+  beforeTotal:from.length,afterTotal:to.length,beforeShown:Math.min(from.length,limit),afterShown:Math.min(to.length,limit),
+  method:'exact-normalized-paragraph-presence',graded:false,
+  sourceUrls:['https://'+a.language+'.wikipedia.org/w/index.php?oldid='+a.revisionId,'https://'+b.language+'.wikipedia.org/w/index.php?oldid='+b.revisionId]};
+}
+/** An archive's visible filter keeps retrieved original metadata only, never replaces pagination ownership. */
+export function selectArchiveRevisions(history,{query='',fromDate='',toDate=''}={}){
+ if(!history?.identity?.pageId||!Array.isArray(history.revisions))return [];
+ const search=String(query).trim().toLocaleLowerCase().slice(0,100);
+ for(const date of [fromDate,toDate])if(date&&!/^\d{4}-\d{2}-\d{2}$/.test(date))throw new Error('Invalid UTC archive date');
+ return history.revisions.filter(r=>
+  Number.isSafeInteger(r.revisionId)&&r.revisionId>0&&r.pageId===history.identity.pageId&&r.language===history.identity.language&&
+  (!fromDate||r.timestamp.slice(0,10)>=fromDate)&&(!toDate||r.timestamp.slice(0,10)<=toDate)&&
+  (!search||[String(r.revisionId),r.comment,r.timestamp].some(t=>String(t||'').toLocaleLowerCase().includes(search)))
+ ).sort((a,b)=>b.timestamp.localeCompare(a.timestamp));
+}
 export function changeChallenge(comparison,seed='1'){
  const choices=[...comparison.added.map(text=>({text,kind:'added'})),...comparison.removed.map(text=>({text,kind:'removed'}))];
  if(!choices.length)return null;
