@@ -35,6 +35,7 @@ export async function replayLinkAudit(item){
  const seed='review_'+p.pageId+'_'+c.pageId;
  const question=buildLinkAudit(first,second,{seed});
  let common=null;try{common=buildCommonLinkAudit(first,second,{seed});}catch{}
- const origin=buildLinkOriginAudit(first,second,{seed});
+ // Older v1 entries have no subject; they reopen the pair, not a fabricated target.
+ const origin=buildLinkOriginAudit(first,second,{seed,...(typeof item?.subject==='string'?{target:item.subject}:{})});
  return {question,common,origin,pages:[first,second],retrievedAt:new Date().toISOString(),reviewOf:'local-missed-source'};
 }

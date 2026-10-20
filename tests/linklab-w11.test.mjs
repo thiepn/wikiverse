@@ -53,3 +53,26 @@ test('W11 v1 backup export, verified readback, and owner-controlled restore pres
  const restored=commitInspectedRestore(initialProgress(),inspected,'replace',store);
  assert.equal(restored.version,1);assert.deepEqual(readProgress(store).linkLab,source.linkLab);
 });
+
+test('W11 late alphabetic original targets remain actionable beyond the unfiltered inspection cap',()=>{
+ const many=Array.from({length:135},(_,i)=>'Article '+String(i).padStart(3,'0'));
+ const first=page('Mathematics',11,111,[...many,'Biology']),second=page('Marie Curie',22,222,['Physics','Biology','Astronomy']);
+ assert.equal(linkSetEvidence(first,second,{limit:120}).records.find(x=>x.title==='Article 134'),undefined);
+ const q=buildLinkOriginAudit(first,second,{seed:'late-target',target:'Article 134'});
+ assert.equal(q.answer,'primary');assert.equal(q.subject,'Article 134');assert.equal(gradeLinkAudit(q,q.answer),true);
+});
+test('W11 missed origin answers enter authentic v1 study review with optional original target, including old backups',async()=>{
+ const {reviewQueue}=await import('../src/domain/study.mjs');
+ const q=buildLinkOriginAudit(a,b,{seed:'review',target:'Astronomy'}),wrong='shared';
+ const saved=recordLinkAudit(q,wrong);
+ assert.equal(saved.subject,'Astronomy');assert.equal(saved.correct,false);
+ const progress=recordLinkLab(initialProgress(),saved),queue=reviewQueue(progress,new Date(Date.now()+2000));
+ assert.equal(queue.length,1);assert.equal(queue[0].subject,'Astronomy');assert.equal(queue[0].questionKind,'wikipedia-link-origin');
+ const old={...saved};delete old.subject;
+ const legacy=reviewQueue(recordLinkLab(initialProgress(),old),new Date(Date.now()+2000));
+ assert.equal(legacy.length,1);assert.equal(legacy[0].subject,undefined);assert.match(legacy[0].detail,/Original target is not available/);
+ assert.throws(()=>recordLinkLab(initialProgress(),{...saved,subject:'X'.repeat(191)}),/Invalid original target/);
+ const archive=await exportProgressBackup(progress,new Date('2026-10-19T13:00:00Z'));
+ const inspected=await inspectProgressBackup(archive);
+ assert.equal(inspected.progress.linkLab[0].subject,'Astronomy');
+});

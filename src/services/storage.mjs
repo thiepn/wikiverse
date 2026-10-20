@@ -1,3 +1,4 @@
+import {isArticleTitle} from '../domain/game.mjs';
 const KEY='wikiverse:progress:v1';
 export const initialProgress=()=>({version:1,races:[],mysteries:[],exploration:[],learning:[],vocabulary:[],evidenceReviews:[],historyChallenges:[],arenaAttempts:[],knowledgeAttempts:[],linkLab:[],readingHistory:[],studyNotes:[],sourceClips:[],offlineArticles:[],reviewMarkers:{},saved:{},daily:{race:null,mystery:null,arena:null}});
 export function readProgress(storage=globalThis.localStorage) {
@@ -50,6 +51,7 @@ export function recordKnowledgeAttempt(progress,entry){
 
 export function recordLinkLab(progress,entry){
  if(!['wikipedia-outgoing-link','wikipedia-common-link','wikipedia-link-origin'].includes(entry?.kind)||entry?.mode!=='linklab'||entry?.scoringAuthority!=='pinned-article-links'||entry?.ranked!==false||!Array.isArray(entry.sourceIds)||entry.sourceIds.length!==2||entry?.primary?.pageId===entry?.contrast?.pageId||!Array.isArray(entry.sourceUrls)||entry.sourceUrls.length!==2||typeof entry.correct!=='boolean')throw new Error('Invalid original-source link practice result');
+ if(entry.subject!==undefined&&(entry.kind!=='wikipedia-link-origin'||!isArticleTitle(entry.subject)||entry.subject.length>190))throw new Error('Invalid original target-link identity');
  return {...progress,linkLab:[entry,...(progress.linkLab||[])].slice(0,120)};
 }
 

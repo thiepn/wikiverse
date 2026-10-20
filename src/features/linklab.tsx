@@ -42,7 +42,7 @@ export default function LinkLab({onComplete,onReadSource,onStudySource,onChooseS
   const n=++op.current;setBusy('Reopening original pinned article revisions…');setError('');setSelected(null);setHint(false);
   try{
    const data=await replayLinkAudit(initialReview);
-   if(op.current===n){setChallenge(data);setExercise(initialReview.kind==='linklab'&&data.common?'common':'outgoing');setStarter(data.question.primary.title);setRound(0);setReplayed(true);setInspected('');setLinkQuery('');setLinkFilter('all');}
+   if(op.current===n){setChallenge(data);setExercise(initialReview.questionKind==='wikipedia-link-origin'&&initialReview.subject&&data.origin?'origin':initialReview.questionKind==='wikipedia-outgoing-link'?'outgoing':initialReview.questionKind==='wikipedia-common-link'&&data.common?'common':initialReview.kind==='linklab'&&data.common?'common':'outgoing');setStarter(data.question.primary.title);setRound(0);setReplayed(true);setInspected('');setLinkQuery('');setLinkFilter('all');}
   }catch(e:any){if(op.current===n)setError(e.message||'Archived source could not be revalidated');}
   finally{if(op.current===n)setBusy('');}
  }

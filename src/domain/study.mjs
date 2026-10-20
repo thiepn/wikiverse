@@ -43,10 +43,15 @@ export function reviewQueue(progress,now=new Date()){
  const keys=new Map(),today=now.getTime();
  const add=(entry)=>{const previous=keys.get(entry.key);if(!previous||entry.originAt>previous.originAt)keys.set(entry.key,entry);};
  for(const result of progress.linkLab||[]){
-  if(result.correct!==false||!result.primary||!result.contrast||!['wikipedia-outgoing-link','wikipedia-common-link'].includes(result.kind))continue;
+  if(result.correct!==false||!result.primary||!result.contrast||!['wikipedia-outgoing-link','wikipedia-common-link','wikipedia-link-origin'].includes(result.kind))continue;
   try{
-   const article=checkedArticle(result.primary),contrast=checkedArticle(result.contrast),key='link:'+articleKey(article)+':'+articleKey(contrast);
-   add({key,kind:'linklab',article,contrast,headline:'Recheck original article links',detail:'Previously missed a pinned-revision link question',originAt:result.at||'',source:sourceRevisionUrl(article)});
+   const article=checkedArticle(result.primary),contrast=checkedArticle(result.contrast);
+   const subject=result.kind==='wikipedia-link-origin'&&typeof result.subject==='string'&&isArticleTitle(result.subject)?normalizeTitle(result.subject):null;
+   const key='link:'+articleKey(article)+':'+articleKey(contrast)+(result.kind==='wikipedia-link-origin'?':origin:'+(subject||'legacy'):'');
+   add({key,kind:'linklab',questionKind:result.kind,...(subject?{subject}:{}),article,contrast,
+    headline:subject?'Recheck original link: '+subject:'Recheck original article links',
+    detail:result.kind==='wikipedia-link-origin'&&!subject?'Original target is not available in this earlier record; inspect the pinned link sets.':'Previously missed a pinned-revision link question',
+    originAt:result.at||'',source:sourceRevisionUrl(article)});
   }catch{}
  }
 

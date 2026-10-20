@@ -17,7 +17,10 @@ export function gradeLinkAudit(question,value){return ['wikipedia-outgoing-link'
 export function recordLinkAudit(question,value){
  if(!question?.sourceUrls?.length||!question.choices?.includes(value)||question.scoreAuthority!=='pinned-article-links')throw new Error('Invalid sourced link audit');
  const correct=gradeLinkAudit(question,value);
- return {id:question.id+':'+Date.now(),kind:question.kind,mode:'linklab',primary:question.primary,contrast:question.contrast,selected:value,correct,score:correct?100:0,ranked:false,at:new Date().toISOString(),sourceUrls:[...question.sourceUrls],sourceIds:[articleKey(question.primary),articleKey(question.contrast)],scoringAuthority:'pinned-article-links'};
+ if(question.kind==='wikipedia-link-origin'&&(!isArticleTitle(question.subject)||normalizeTitle(question.subject)!==question.subject))throw new Error('A canonical original hyperlink subject is required');
+ return {id:question.id+':'+Date.now(),kind:question.kind,mode:'linklab',primary:question.primary,contrast:question.contrast,selected:value,correct,score:correct?100:0,ranked:false,
+  ...(question.kind==='wikipedia-link-origin'?{subject:question.subject}:{}),
+  at:new Date().toISOString(),sourceUrls:[...question.sourceUrls],sourceIds:[articleKey(question.primary),articleKey(question.contrast)],scoringAuthority:'pinned-article-links'};
 }
 export function linkAuditNextHint(question){if(question?.kind==='wikipedia-link-origin')return 'Inspect both original source link lists.';return question?.kind==='wikipedia-outgoing-link'?'Inspect the original links of '+question.primary.title+'.':question?.kind==='wikipedia-common-link'?'Inspect the outgoing links of both source revisions.':null;}
 
@@ -66,14 +69,15 @@ export function linkSetEvidence(primary,contrast,{query='',filter='all',limit=80
 export function buildLinkOriginAudit(primary,contrast,{seed='link-origin',target=null}={}){
  const evidence=linkSetEvidence(primary,contrast,{limit:120});
  // Target must be in original evidence; never synthesize a title or target revision.
- const original=target?evidence.records.find(x=>x.title===normalizeTitle(target)):null;
+ // Resolve a chosen target against the full real link set before limiting results.
+ const original=target?linkSetEvidence(primary,contrast,{query:normalizeTitle(target),limit:120}).records.find(x=>x.title===normalizeTitle(target)):null;
  if(target&&!original)throw new Error('Selected link is absent from these original revisions');
  const groups=['shared','primary','contrast'].filter(k=>evidence.counts[k]>0);
  if(!groups.length)throw new Error('No original outbound links available to classify');
- const available=groups.filter(k=>evidence.records.some(x=>x.category===k));
+ const available=groups.filter(k=>linkSetEvidence(primary,contrast,{filter:k,limit:1}).records.length>0);
  const category=available[hashSeed(seed+':category')%available.length];
- const eligible=target?[original]:evidence.records.filter(x=>x.category===category);
- // The bounded explorer should not cause missing eligible categories on larger real articles.
+ const eligible=target?[original]:linkSetEvidence(primary,contrast,{filter:category,limit:120}).records;
+ // Selection remains bounded while every eligible category is source-backed.
  if(!eligible.length)throw new Error('No inspected original link is available for this challenge');
  const row=eligible[hashSeed(seed+':target')%eligible.length];
  const p=evidence.primary,c=evidence.contrast;
