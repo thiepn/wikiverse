@@ -113,7 +113,7 @@ function App(){
   function openSourceStudy(article:Page['identity']){const canonical=topicSource(article);setJourneySource(canonical);move('study');setStudyFocus(canonical);}
    function inspectSavedCitation(article:Page['identity'],citationId:string){
      const pinned=topicSource(article);
-     if(!/^cite_note[-\\w:.]{1,90}$/.test(citationId)){setError('Invalid original citation identity');return;}
+     if(!/^cite_note[-\w:.]{1,90}$/.test(citationId)){setError('Invalid original citation identity');return;}
      setJourneySource(pinned);move('detective');setModeFocus({mode:'detective',article:pinned});setCitationFocus(citationId);
    }
   function openJourney(mode:string){

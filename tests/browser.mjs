@@ -64,7 +64,7 @@ function respond(url){
      html='<p>Marie Curie studied radioactivity through extensive scientific research and experimental observations on chemical materials and physical phenomena.<sup class="reference"><a href="#cite_note-ref1">[1]</a></sup></p>'+
        '<p>Careful historical documentation records the scientific discoveries described in scholarly sources and published research materials.<sup class="reference"><a href="#cite_note-ref2">[2]</a></sup></p>'+
        '<p>Experimental studies contributed to important conversations about science and society in numerous educational publications.<sup class="reference"><a href="#cite_note-ref3">[3]</a></sup></p>'+
-       '<ol class="references">'+[1,2,3].map(i=>'<li id="cite_note-ref'+i+'"><span class="reference-text"><a class="external text" href="https://example.org/reference-'+i+'">Research publication '+i+' and historical bibliography</a> — 2021</span></li>').join('')+'</ol>';
+       '<ol class="references">'+[1,2,3].map(i=>'<li id="cite_note-ref'+i+'"><span class="reference-text"><a class="external text" href="'+(i<3?'https://example.org/repeated-source':'https://example.org/reference-'+i)+'">Research publication '+i+' and historical bibliography</a> — 2021</span></li>').join('')+'</ol>';
      if(lang==='fr')html='<p>Marie Curie étudiait la radioactivité dans plusieurs laboratoires scientifiques et développait une compréhension nouvelle des phénomènes physiques complexes observés pendant ses recherches.</p>'+
        '<p>Cette chercheuse utilisait des méthodes expérimentales rigoureuses pour analyser les matériaux et communiquer ses résultats scientifiques au public européen.</p>';
    }
@@ -345,6 +345,29 @@ try{
    // W08: three authentic source citations, literal filtering, independent evidence
    // comparison, original revision anchors and existing private assessment writer.
    assert.equal(await page.locator('.learn-citation-index article').count(),3);
+   // W13: repeated exact external URL placements are evidence of citation reuse,
+   // not proof that either original Wikipedia claim has external support.
+   await page.getByRole('button',{name:/Reference reuse/}).click();
+   await page.locator('.learn-reuse-groups>article').first().waitFor();
+   assert.equal(await page.locator('.learn-reuse-groups>article').count(),1);
+   assert.equal(await page.locator('.learn-reuse-placement').count(),2);
+   await page.locator('.learn-reuse-groups').getByRole('button',{name:/Compare first 2 placements/}).click();
+   await page.locator('.learn-comparison-grid article').first().waitFor();
+   assert.equal(await page.locator('.learn-comparison-grid article').count(),2);
+   await page.getByRole('button',{name:/Reference reuse/}).click();
+   await page.locator('.learn-reuse-placement').nth(1).getByRole('button',{name:/Evaluate placement/}).click();
+   await page.waitForFunction(()=>document.querySelector('#citation-select')?.value==='cite_note-ref2');
+   await page.locator('#review-verdict').selectOption('unreviewed');
+   await page.locator('#review-note').fill('The external research publication was not inspected; I cannot confirm the Wikipedia citation claim.');
+   await page.getByRole('button',{name:/Save private review/}).click();
+   await page.getByText(/Private review recorded for this exact citation/).waitFor();
+   await nav('Study Desk');
+   await page.getByRole('button',{name:/Citation reviews/}).click();
+   await page.locator('.study-citation-list article').getByText(/cite_note-ref2/).waitFor();
+   await page.locator('.study-citation-list article').getByRole('button',{name:/Reopen citation investigation/}).click();
+   await page.waitForFunction(()=>document.querySelector('#citation-select')?.value==='cite_note-ref2');
+   assert.equal(await page.locator('#review-verdict').inputValue(),'unreviewed');
+   assert.match(await page.locator('#review-note').inputValue(),/not inspected/);
    await page.locator('#research-search').fill('Research publication 2');
    await page.waitForFunction(()=>document.querySelectorAll('.learn-citation-index article').length===1);
    await page.locator('#research-search').fill('');
