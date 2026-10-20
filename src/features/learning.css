@@ -70,3 +70,19 @@
 .learn .learn-research button{min-height:42px}
 @media(max-width:900px){.learn .learn-research-columns{grid-template-columns:1fr}.learn .learn-citation-index{max-height:340px}}
 @media(max-width:620px){.learn .learn-research{padding:14px}.learn .learn-comparison-grid{grid-template-columns:1fr}.learn .learn-citation-detail{padding:13px}.learn .learn-citation-step button{flex:1}.learn .learn-research-actions button{flex:1 1 140px}}
+
+.learn .learn-reference-controls{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin:10px 0 16px}
+.learn .learn-reference-controls>div{flex:1 1 260px;min-width:0}
+.learn .learn-reference-controls label{font-size:14px;display:block;margin-bottom:8px}
+.learn .learn-reference-controls input[type=search]{width:100%;max-width:100%}
+.learn .learn-reference-controls .learn-reuse-toggle{display:flex;gap:9px;align-items:center;min-height:44px}
+.learn .learn-reference-controls .learn-reuse-toggle input{min-height:0;width:19px;height:19px}
+.learn .learn-reference-usage>p{font-size:14px;line-height:1.6}
+.learn .learn-reuse-groups{display:grid;gap:14px}
+.learn .learn-reuse-groups>article{border:1px solid #466571;background:#1a333e;padding:16px;min-width:0}
+.learn .learn-reuse-heading{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+.learn .learn-reuse-heading a,.learn .learn-reuse-placement a{font-size:14px;overflow-wrap:anywhere}
+.learn .learn-reuse-placement{margin:12px 0;border-left:3px solid #91c6c5;background:#24414c;padding:12px}
+.learn .learn-reuse-placement>strong{font-size:14px;overflow-wrap:anywhere}
+.learn .learn-reuse-placement blockquote{font-size:15px;line-height:1.65;padding:0;margin:10px 0;overflow-wrap:anywhere}
+.learn .learn-reuse-groups>article>button{margin-top:10px}

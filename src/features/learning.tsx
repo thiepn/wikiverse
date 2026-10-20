@@ -1,7 +1,7 @@
 import React,{useEffect,useMemo,useRef,useState} from 'react';
 import {loadLanguagePair,loadLanguagePairByQid,articleParagraphs,sourcePassageCloze,sourceCloze,sourceCitations,sourceQuestion} from '../services/learning.mjs';
 import {loadArticle,searchArticles} from '../services/wikimedia.mjs';
-import {LEARNING_LANGUAGES,originalPassageMatches,searchableCitations,citationComparison,adjacentCitation,vocabularyEntry,gradeCloze,gradeCitation,evidenceReflection} from '../domain/learning.mjs';
+import {LEARNING_LANGUAGES,originalPassageMatches,searchableCitations,citationComparison,originalReferenceUsage,adjacentCitation,vocabularyEntry,gradeCloze,gradeCitation,evidenceReflection} from '../domain/learning.mjs';
 import {revisionUrl} from '../domain/game.mjs';
 import {makeReaderHtml} from '../components/reader';
 import './learning.css';
@@ -19,7 +19,7 @@ function SourcePane({page,selected,onSelect}:{page:Page;selected?:boolean;onSele
   <footer>Adapted from Wikipedia revision {page.identity.revisionId} · <a href={source} target="_blank" rel="noreferrer">Article and contributors</a> · <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noreferrer">CC BY-SA 4.0</a></footer>
  </section>;
 }
-export default function Learning({mode,focusArticle,onSelectSource,onReadSource,onStudySource,onVocabulary,onResult,onReflection,onClip,onOffline}:{mode:Mode;focusArticle?:Article|null;onSelectSource?:(article:Article)=>void;onReadSource?:(article:Article)=>void;onStudySource?:(article:Article)=>void;onVocabulary:(x:any)=>void;onResult:(x:LearningResult)=>void;onReflection:(x:any)=>void;onClip:(x:any)=>void;onOffline:(page:Page)=>void}){
+export default function Learning({mode,focusArticle,focusCitationId='',savedReviews=[],onSelectSource,onReadSource,onStudySource,onVocabulary,onResult,onReflection,onClip,onOffline}:{mode:Mode;focusArticle?:Article|null;focusCitationId?:string;savedReviews?:any[];onSelectSource?:(article:Article)=>void;onReadSource?:(article:Article)=>void;onStudySource?:(article:Article)=>void;onVocabulary:(x:any)=>void;onResult:(x:LearningResult)=>void;onReflection:(x:any)=>void;onClip:(x:any)=>void;onOffline:(page:Page)=>void}){
  const [busy,setBusy]=useState('');const [error,setError]=useState('');
  const [topic,setTopic]=useState('Marie Curie');const [language,setLanguage]=useState('fr');
  const [pair,setPair]=useState<any>(null);const [active,setActive]=useState('fr');
@@ -29,11 +29,13 @@ export default function Learning({mode,focusArticle,onSelectSource,onReadSource,
  const [item,setItem]=useState<any>(null);const [choice,setChoice]=useState<string|null>(null);const [round,setRound]=useState(0);
  const [evidencePage,setEvidencePage]=useState<Page|null>(null);const [citations,setCitations]=useState<any[]>([]);const [question,setQuestion]=useState<any>(null);const [citationChoice,setCitationChoice]=useState<string|null>(null);const [index,setIndex]=useState(0);const [reviewId,setReviewId]=useState('');
  const [verdict,setVerdict]=useState('insufficient');const [note,setNote]=useState('');const [reviewSaved,setReviewSaved]=useState(false);
- const [citationQuery,setCitationQuery]=useState(''),[compareIds,setCompareIds]=useState<string[]>([]),[researchView,setResearchView]=useState<'browse'|'compare'>('browse'),[researchStatus,setResearchStatus]=useState('');
+ const [citationQuery,setCitationQuery]=useState(''),[compareIds,setCompareIds]=useState<string[]>([]),[researchView,setResearchView]=useState<'browse'|'compare'|'reuse'>('browse'),[researchStatus,setResearchStatus]=useState('');
+ const [reuseQuery,setReuseQuery]=useState(''),[reusedOnly,setReusedOnly]=useState(true);
  const operation=useRef(0);
  const selectedRecord=citations.find(x=>x.id===reviewId)||citations[0];
  const citedRecords=useMemo(()=>searchableCitations(citations,citationQuery),[citations,citationQuery]);
  const compared=useMemo(()=>{if(compareIds.length<2)return null;try{return citationComparison(citations,compareIds);}catch{return null;}},[citations,compareIds]);
+ const referenceUsage=useMemo(()=>originalReferenceUsage(citations,{query:reuseQuery,reusedOnly,limit:60}),[citations,reuseQuery,reusedOnly]);
  const pairedLanguage=pair?.selectedLanguage||language;
  const readPage=(pair:any,lang:string)=>pair?.articles?.[lang];
  const passageViews=useMemo(()=>{
@@ -70,15 +72,20 @@ export default function Learning({mode,focusArticle,onSelectSource,onReadSource,
   setItem(q);setChoice(null);setExerciseLanguage(lang);setRound(n=>n+1);setPassageNotice('Original sentence practice loaded below.');
  }
  async function fetchEvidence(name:string,source?:Article|null){
-  const n=++operation.current;setBusy('Retrieving Wikipedia article and citations…');setError('');setEvidencePage(null);setCitations([]);setCompareIds([]);setCitationQuery('');setResearchStatus('');setResearchView('browse');
+  const n=++operation.current;setBusy('Retrieving Wikipedia article and citations…');setError('');setEvidencePage(null);setCitations([]);setCompareIds([]);setCitationQuery('');setResearchStatus('');setResearchView('browse');setReuseQuery('');
   try{const page=await loadArticle(name,source?.revisionId||null,source?.language||'en');
    if(source&&(page.identity.pageId!==source.pageId||page.identity.revisionId!==source.revisionId||page.identity.language!==source.language))throw new Error('Pinned citation source identity changed');
    if(n!==operation.current)return;
-   const citations=sourceCitations(page);setEvidencePage(page);setCitations(citations);setIndex(0);setQuestion(sourceQuestion(page,0));setCitationChoice(null);setReviewId(citations[0]?.id||'');setReviewSaved(false);
+   const citations=sourceCitations(page);setEvidencePage(page);setCitations(citations);setIndex(0);setQuestion(sourceQuestion(page,0));setCitationChoice(null);
+    const target=focusCitationId&&citations.find(x=>x.id===focusCitationId)||citations[0];
+    setReviewId(target?.id||'');
+    const saved=savedReviews.find(x=>x.id===target?.id&&x.source===target?.sourceRevision&&x.graded===false);
+    setVerdict(saved?.verdict||'insufficient');setNote(saved?.note||'');setReviewSaved(!!saved);
+    if(focusCitationId&&!citations.some(x=>x.id===focusCitationId))setError('That exact citation is not available in the selected original revision.');
   }catch(e:any){if(n===operation.current)setError(e.message||'Article citations unavailable');}
   finally{if(n===operation.current)setBusy('');}
  }
- useEffect(()=>{const title=focusArticle?.title||'Marie Curie';setTopic(title);if(mode==='polyglot'){const lang=focusArticle?.language!=='en'&&focusArticle?.language?focusArticle.language:'fr';void fetchPair(title,lang,focusArticle?.language||'en');}else void fetchEvidence(title,focusArticle);return()=>{operation.current++;};},[mode,focusArticle?.pageId,focusArticle?.revisionId,focusArticle?.language]);
+ useEffect(()=>{const title=focusArticle?.title||'Marie Curie';setTopic(title);if(mode==='polyglot'){const lang=focusArticle?.language!=='en'&&focusArticle?.language?focusArticle.language:'fr';void fetchPair(title,lang,focusArticle?.language||'en');}else void fetchEvidence(title,focusArticle);return()=>{operation.current++;};},[mode,focusArticle?.pageId,focusArticle?.revisionId,focusArticle?.language,focusCitationId]);
  function selectionOf(lang:string){
   const s=window.getSelection()?.toString().trim().replace(/\s+/g,' ')||'';
   if(s.length>=2&&s.length<=90){setWord(s);setCaptureLanguage(lang);}
@@ -104,13 +111,22 @@ export default function Learning({mode,focusArticle,onSelectSource,onReadSource,
   onResult({mode:'detective',kind:'citation-identity',id:question.id,correct,score:correct?100:0,source:question.source,at:new Date().toISOString()});
  }
  function nextCitation(){const next=index+1;setIndex(next);setQuestion(evidencePage?sourceQuestion(evidencePage,next):null);setCitationChoice(null);}
- function selectCitation(id:string){if(citations.some(x=>x.id===id)){setReviewId(id);setReviewSaved(false);setResearchStatus('');}}
+ function selectCitation(id:string){const cited=citations.find(x=>x.id===id);if(cited){
+  setReviewId(id);
+  const saved=savedReviews.find(x=>x.id===id&&x.source===cited.sourceRevision&&x.graded===false);
+  setVerdict(saved?.verdict||'insufficient');setNote(saved?.note||'');setReviewSaved(!!saved);setResearchStatus('');
+ }}
  function moveCitation(delta:1|-1){const next=adjacentCitation(citations,selectedRecord?.id||'',delta);if(next)selectCitation(next.id);}
  function toggleCitationComparison(id:string){setResearchStatus('');setCompareIds(previous=>{
   if(previous.includes(id))return previous.filter(x=>x!==id);
   return previous.length>=3?previous:[...previous,id];
  });}
  function practiceCitation(id:string){const record=citations.find(x=>x.id===id);if(!record)return;selectCitation(record.id);setResearchView('browse');document.getElementById('review-verdict')?.focus();}
+ function inspectReferenceGroup(group:any){
+  const ids=group.citations.map((x:any)=>x.id).slice(0,3);
+  if(ids.length<2)return;
+  setCompareIds(ids);setResearchView('compare');setResearchStatus('');
+ }
  function saveCitationExcerpt(record:any){if(!evidencePage||record.context.length<12||record.context.length>360)return;
   onClip({article:evidencePage.identity,excerpt:record.context});setResearchStatus('Original cited passage saved to Study Desk.');
  }
@@ -162,9 +178,20 @@ export default function Learning({mode,focusArticle,onSelectSource,onReadSource,
    {mode==='detective'&&evidencePage&&<>
     <div className="learn-source-bar"><span><b>{evidencePage.identity.title}</b> · Revision {evidencePage.identity.revisionId}</span><a href={revisionUrl(evidencePage.identity)} target="_blank" rel="noreferrer">Open original article and references ↗</a>{onSelectSource&&<button onClick={()=>onSelectSource(evidencePage.identity)}>Use original source across WikiVerse →</button>}</div>
     <section className="learn-research" aria-label="Original citation research">
-     <div className="learn-research-head"><h2>Research cited passages</h2><div className="learn-research-mode" role="group" aria-label="Citation research mode"><button aria-pressed={researchView==='browse'} onClick={()=>setResearchView('browse')}>Browse citations</button><button aria-pressed={researchView==='compare'} onClick={()=>setResearchView('compare')}>Compare citations ({compareIds.length})</button></div></div>
+     <div className="learn-research-head"><h2>Research cited passages</h2><div className="learn-research-mode" role="group" aria-label="Citation research mode"><button aria-pressed={researchView==='browse'} onClick={()=>setResearchView('browse')}>Browse citations</button><button aria-pressed={researchView==='compare'} onClick={()=>setResearchView('compare')}>Compare citations ({compareIds.length})</button><button aria-pressed={researchView==='reuse'} onClick={()=>setResearchView('reuse')}>Reference reuse ({originalReferenceUsage(citations,{reusedOnly:true}).total})</button></div></div>
      <label htmlFor="research-search">Find citation, passage or source URL</label><input id="research-search" type="search" maxLength={120} value={citationQuery} onChange={e=>setCitationQuery(e.target.value)} placeholder="Search original citation records"/>
-     {researchView==='browse'?<div className="learn-research-columns"><div className="learn-citation-index"><h3>Citations ({citedRecords.length})</h3>
+     {researchView==='reuse'?<div className="learn-reference-usage" aria-label="External reference reuse in original Wikipedia citations">
+       <div className="learn-reference-controls"><div><label htmlFor="reuse-find">Find recorded external URL or citation text</label><input id="reuse-find" type="search" maxLength={120} value={reuseQuery} onChange={e=>setReuseQuery(e.target.value)}/></div>
+       <label className="learn-reuse-toggle"><input type="checkbox" checked={reusedOnly} onChange={e=>setReusedOnly(e.target.checked)}/> Appears in multiple citations</label></div>
+       <p>{referenceUsage.total} matching external URL {referenceUsage.total===1?'entry':'entries'} · {citations.length} parsed citation records (maximum 20). Up to four external URLs per citation are inspected; external documents are not fetched or graded.</p>
+       <div className="learn-reuse-groups">{referenceUsage.groups.map((group:any)=><article key={group.url}>
+        <div className="learn-reuse-heading"><strong>{group.occurrences} citation {group.occurrences===1?'placement':'placements'}</strong><a href={group.url} target="_blank" rel="noreferrer">Recorded external URL ↗</a></div>
+        {group.citations.map((cite:any)=><div className="learn-reuse-placement" key={cite.id}><strong>{cite.id} · {cite.label}</strong><blockquote>{cite.context}</blockquote><div className="learn-research-actions"><a href={cite.sourceRevision} target="_blank" rel="noreferrer">Original citation ↗</a><button onClick={()=>practiceCitation(cite.id)}>Evaluate placement →</button></div></div>)}
+        {group.occurrences>=2&&<button onClick={()=>inspectReferenceGroup(group)}>Compare first {Math.min(3,group.occurrences)} placements →</button>}
+       </article>)}{!referenceUsage.groups.length&&<p>No recorded external URL matches this selection.</p>}</div>
+       {referenceUsage.truncated&&<p>Only the first {referenceUsage.shown} of {referenceUsage.total} matching URLs are shown.</p>}
+       <p>The same external URL occurring in more than one citation is not independent corroboration or evidence that the publication supports either passage.</p>
+     </div>:researchView==='browse'?<div className="learn-research-columns"><div className="learn-citation-index"><h3>Citations ({citedRecords.length})</h3>
        {citedRecords.length?citedRecords.map((c:any)=><article key={c.id} className={selectedRecord?.id===c.id?'selected':''}>
           <button className="learn-citation-select" aria-pressed={selectedRecord?.id===c.id} onClick={()=>selectCitation(c.id)}><strong>{c.label}</strong><span>{c.id}</span></button>
           <button disabled={compareIds.length>=3&&!compareIds.includes(c.id)} aria-pressed={compareIds.includes(c.id)} onClick={()=>toggleCitationComparison(c.id)}>{compareIds.includes(c.id)?'Remove from comparison':'Compare this citation'}</button>
@@ -199,7 +226,7 @@ export default function Learning({mode,focusArticle,onSelectSource,onReadSource,
       {citations.length?<>
        <label htmlFor="citation-select">Choose one citation</label><select id="citation-select" value={selectedRecord?.id||''} onChange={e=>selectCitation(e.target.value)}>{citations.map(x=><option key={x.id} value={x.id}>{x.label.slice(0,95)}</option>)}</select>
        {selectedRecord&&<><blockquote className="learn-question">{selectedRecord.context}</blockquote><p>{selectedRecord.label}</p><div className="learn-links">{selectedRecord.links.map((u:string)=><a key={u} href={u} target="_blank" rel="noreferrer">Open external reference ↗</a>)}<a href={selectedRecord.sourceRevision} target="_blank" rel="noreferrer">Original Wikipedia reference ↗</a></div>
-       <form onSubmit={saveReview}><label htmlFor="review-verdict">Your assessment after reading the external source</label><select id="review-verdict" value={verdict} onChange={e=>{setVerdict(e.target.value);setReviewSaved(false);}}><option value="supports">Supports the claim</option><option value="contradicts">Contradicts the claim</option><option value="insufficient">Insufficient evidence</option><option value="unreviewed">Source inaccessible / not reviewed</option></select><label htmlFor="review-note">Your evidence and reasoning</label><textarea id="review-note" value={note} onChange={e=>{setNote(e.target.value);setReviewSaved(false);}} minLength={10} maxLength={2000} rows={5} placeholder="Quote or paraphrase the source passage and explain your judgment…" required/><button type="submit">Save private review →</button>{reviewSaved&&<p role="status">Review saved locally — your assessment is not machine graded.</p>}</form></>}
+       <form onSubmit={saveReview}><label htmlFor="review-verdict">Your assessment after reading the external source</label><select id="review-verdict" value={verdict} onChange={e=>{setVerdict(e.target.value);setReviewSaved(false);}}><option value="supports">Supports the claim</option><option value="contradicts">Contradicts the claim</option><option value="insufficient">Insufficient evidence</option><option value="unreviewed">Source inaccessible / not reviewed</option></select><label htmlFor="review-note">Your evidence and reasoning</label><textarea id="review-note" value={note} onChange={e=>{setNote(e.target.value);setReviewSaved(false);}} minLength={10} maxLength={2000} rows={5} placeholder="Quote or paraphrase the source passage and explain your judgment…" required/><button type="submit">Save private review →</button>{reviewSaved&&<p role="status">Private review recorded for this exact citation and Wikipedia revision; not machine graded.</p>}</form></>}
       </>:<p>No usable external citation records were found in this revision. No evidence judgment has been fabricated.</p>}
      </section>
     </div>

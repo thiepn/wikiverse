@@ -50,5 +50,5 @@ test('W13 original v1 persistence and backup preserve optional verified page sou
  const backup=await exportProgressBackup(data,new Date('2026-10-20T12:00:00Z'));
  const inspected=await inspectProgressBackup(backup);
  assert.equal(inspected.progress.evidenceReviews[0].source,e.source);
- assert.deepEqual(inspected.progress.evidenceReviews[0].article,article);
+ assert.deepEqual({...inspected.progress.evidenceReviews[0].article},article);
 });
