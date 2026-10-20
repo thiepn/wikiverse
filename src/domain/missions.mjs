@@ -34,6 +34,71 @@ export function dailyMissionBoard(progress,date=dateKey()){
  const missions=selected.map(rule=>{const evidence=missionEvidence(progress,rule.id,date);return {...rule,complete:evidence.length>0,count:evidence.length};});
  return {date,missions,completed:missions.filter(x=>x.complete).length,total:missions.length,authority:'device-records-only'};
 }
+/** Source inspection is a read-only projection of original missionEvidence.
+ * Each URL below must already be grounded in the saved original source record,
+ * or in the original page/revision identifiers it contains. No new authority. */
+const SOURCE_REVISION=/^https:\/\/(en|fr|de|ko|tr)\.wikipedia\.org\/w\/index\.php\?oldid=[1-9]\d*(?:#[a-zA-Z0-9%_.:%-]+)?$/;
+const SOURCE_ENTITY=/^https:\/\/www\.wikidata\.org\/wiki\/Q[1-9]\d*(?:#P[1-9]\d*)?$/;
+const SOURCE_METRIC=/^https:\/\/wikimedia\.org\/api\/rest_v1\/metrics\/pageviews$/;
+function originalSourceUrl(source){
+ return typeof source==='string'&&(SOURCE_REVISION.test(source)||SOURCE_ENTITY.test(source)||SOURCE_METRIC.test(source))?source:null;
+}
+function originalArticle(article){
+ if(!article||!['en','fr','de','ko','tr'].includes(article.language)||
+  !Number.isSafeInteger(article.pageId)||article.pageId<=0||
+  !Number.isSafeInteger(article.revisionId)||article.revisionId<=0||
+  typeof article.title!=='string'||!article.title.trim()||article.title.length>190)return null;
+ return {language:article.language,pageId:article.pageId,revisionId:article.revisionId,title:article.title};
+}
+const stampFields={'article-trail':'completedAt','article-race':'finishedAt','source-mystery':'finishedAt','map-source':'at','learn-word':'savedAt','investigate':'at','source-change':'at','relationship':'at','link-audit':'at'};
+function originalEventSources(record){
+ const out=[];
+ const add=(url,label)=>{const source=originalSourceUrl(url);if(source&&!out.some(x=>x.url===source))out.push({url:source,label});};
+ add(record?.source,'Original recorded source');
+ for(const url of (Array.isArray(record?.sourceUrls)?record.sourceUrls:[]).slice(0,6))add(url,'Original source revision');
+ for(const original of [record?.article,record?.primary,record?.contrast]){
+  const a=originalArticle(original);
+  if(a)add('https://'+a.language+'.wikipedia.org/w/index.php?oldid='+a.revisionId,a.title+' · revision '+a.revisionId);
+ }
+ // A pinned arena sourceId includes the actual language, page and revision.
+ for(const raw of (Array.isArray(record?.sourceIds)?record.sourceIds:[]).slice(0,5)){
+  const match=typeof raw==='string'?raw.match(/^(en|fr|de|ko|tr):[1-9]\d*:(?:[1-9]\d*)$/):null;
+  if(match){const revision=raw.slice(raw.lastIndexOf(':')+1);add('https://'+match[1]+'.wikipedia.org/w/index.php?oldid='+revision,'Pinned revision '+revision);}
+ }
+ return out.slice(0,6);
+}
+/** All selected events retain their actual original UTC timestamp and identities;
+ * an event is never considered successful merely because its link can be opened. */
+export function missionRecordDetails(progress,id,date,limit=16){
+ if(!Number.isInteger(limit)||limit<1||limit>60)throw new Error('Unsupported original mission evidence limit');
+ const records=missionEvidence(progress,id,date),timeField=stampFields[id];
+ return {id,date,total:records.length,shown:Math.min(records.length,limit),truncated:records.length>limit,
+  records:records.slice(0,limit).map((record,index)=>{
+   const at=record[timeField];
+   const article=originalArticle(record.article)||originalArticle(record.primary)||null;
+   const other=originalArticle(record.contrast);
+   const sourceUrls=originalEventSources(record);
+   let label=id==='article-trail'?'Verified article trail':
+    id==='article-race'?'Completed WikiRace':
+    id==='source-mystery'?'Solved Wikidata mystery':
+    id==='map-source'?'Sourced coordinate answer':
+    id==='learn-word'?'Saved original vocabulary':
+    id==='investigate'?'Private ungraded citation assessment':
+    id==='source-change'?(record.mode==='pulse'?'Wikimedia pageview answer':'Original revision comparison'):
+    id==='relationship'?'Recorded Wikidata relation':'Original hyperlink classification';
+   if(article)label+=' · '+article.title;
+   if(other)label+=' / '+other.title;
+   return {index,at:typeof at==='string'?at:'',label,mode:id==='source-change'?(record.mode==='pulse'?'pulse':'capsule'):MISSION_RULES.find(rule=>rule.id===id).mode,
+    article,other,sourceUrls,sourceIds:Array.isArray(record.sourceIds)?record.sourceIds.filter(x=>typeof x==='string').slice(0,5):[],
+    authority:id==='investigate'?'ungraded-original-review':'original-local-source-record'};
+  })};
+}
+/** Inspect a past UTC day's own deterministic five task rules and their actual
+ * completion records; never move activity between days or synthesize streaks. */
+export function missionDayHistory(progress,date,limit=6){
+ const board=dailyMissionBoard(progress,date);
+ return {...board,evidence:board.missions.map(m=>missionRecordDetails(progress,m.id,date,limit))};
+}
 export function milestoneBoard(progress){
  const unique=new Set(), achievements=[
   {id:'first-race',name:'First confirmed route',detail:'Recorded your first sourced WikiRace',count:(progress.races||[]).filter(x=>x.sourceProof?.length>=3).length,target:1},
