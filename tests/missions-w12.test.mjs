@@ -29,9 +29,9 @@ test('W12 original mission evidence preserves exact UTC date and source IDs with
 test('W12 directly saved original source revisions, private observations and unsafe urls remain correctly separated',()=>{
  const clone={...p,evidenceReviews:[...p.evidenceReviews,{at:DAY+'T13:00:00Z',graded:false,source:'javascript:alert(1)',note:'not valid source'}]};
  const e=missionRecordDetails(clone,'investigate',DAY);
- assert.equal(e.total,2);
+ assert.equal(e.total,1,'An unsafe citation is rejected by the unchanged mission authority');
  assert.equal(e.records[0].sourceUrls[0].url,'https://en.wikipedia.org/w/index.php?oldid=1111');
- assert.deepEqual(e.records[1].sourceUrls,[]);
+ assert.deepEqual(e.records.flatMap(record=>record.sourceUrls).map(ref=>ref.url),['https://en.wikipedia.org/w/index.php?oldid=1111']);
  assert.equal(missionRecordDetails(p,'learn-word',DAY).records[0].article.language,'en');
  assert.deepEqual(missionRecordDetails(p,'article-trail',DAY).records[0].sourceUrls.map(x=>x.url),[
   'https://en.wikipedia.org/w/index.php?oldid=1111','https://en.wikipedia.org/w/index.php?oldid=2222','https://en.wikipedia.org/w/index.php?oldid=3333']);
