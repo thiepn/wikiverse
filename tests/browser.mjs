@@ -502,8 +502,45 @@ try{
    await page.locator('#arena-code').waitFor();
    assert.equal(await page.locator('#arena-code').inputValue(),dailyCode,'Daily route must preserve local pinned revisions');
    await nav('Daily Missions');await page.getByRole('heading',{name:/Daily Missions/}).waitFor();
-   assert.equal(await page.locator('.mission-item').count(),5,'Five actionable daily tasks');
+   assert.equal(await page.locator('.mission-item').count(),5,'Original UTC mission route remains five tasks');
    assert.ok((await page.locator('.mission-achievement').count())>=6);
+   assert.equal(await page.locator('.mission-week button.mission-day').count(),7);
+   await page.locator('.mission-week button.mission-day').nth(5).click();
+   const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+   await page.locator('.missions-intro').getByText('UTC DAY · '+yesterday).waitFor();
+   await page.locator('.mission-week button.mission-day').last().click();
+   assert.equal(await page.locator('.mission-week button[aria-pressed="true"]').count(),1);
+   const missionBackup=await page.evaluate(()=>localStorage.getItem('wikiverse:progress:v1'));
+   // A controlled local fixture exercises the first selected original task;
+   // restore the actual existing progress bytes before continuing acceptance.
+   await page.evaluate(()=>{
+    const key='wikiverse:progress:v1',p=JSON.parse(localStorage.getItem(key));
+    const ids=['article-trail','article-race','source-mystery','map-source','learn-word','investigate','source-change','relationship','link-audit'];
+    const d=new Date().toISOString().slice(0,10),at=d+'T12:00:00Z';
+    let h=2166136261;for(const c of 'missions:v1:'+d)h=Math.imul(h^c.charCodeAt(0),16777619);
+    const id=ids[(h>>>0)%9],a={language:'en',pageId:1,revisionId:111,title:'Mathematics'},b={language:'en',pageId:2,revisionId:222,title:'Physics'};
+    const original='https://en.wikipedia.org/w/index.php?oldid=111';
+    const records={
+     'article-trail':['arenaAttempts',{completedAt:at,sourceIds:['en:1:111','en:2:222','en:3:333'],ranked:false,score:null,article:a}],
+     'article-race':['races',{finishedAt:at,sourceProof:[111,222,333],clicks:2,article:a}],
+     'source-mystery':['mysteries',{finishedAt:at,score:80,source:'https://www.wikidata.org/wiki/Q7186',article:a}],
+     'map-source':['exploration',{at,mode:'geo',score:100,source:'https://www.wikidata.org/wiki/Q7186',article:a}],
+     'learn-word':['vocabulary',{savedAt:at,term:'original',meaning:'user-defined',article:a}],
+     investigate:['evidenceReviews',{at,graded:false,source:original,note:'Original source assessed privately',article:a}],
+     'source-change':['historyChallenges',{at,mode:'capsule',correct:true,score:100,kind:'revision-change',source:original,sourceIds:['en:1:111'],article:a}],
+     relationship:['knowledgeAttempts',{at,mode:'galaxy',kind:'wikidata-relationship',correct:true,score:100,source:'https://www.wikidata.org/wiki/Q7186#P106',sourceIds:['en:1:111'],article:a}],
+     'link-audit':['linkLab',{at,mode:'linklab',kind:'wikipedia-link-origin',correct:true,score:100,ranked:false,scoringAuthority:'pinned-article-links',primary:a,contrast:b,sourceUrls:[original,'https://en.wikipedia.org/w/index.php?oldid=222'],sourceIds:['en:1:111','en:2:222']}]
+    };
+    const [collection,record]=records[id];p[collection].unshift(record);localStorage.setItem(key,JSON.stringify(p));
+   });
+   await page.reload({waitUntil:'domcontentloaded'});
+   await nav('Daily Missions');
+   await page.locator('.mission-item.completed').first().waitFor();
+   await page.locator('.mission-item').first().getByRole('button',{name:'Evidence'}).click();
+   await page.locator('.missions-evidence-record').filter({has:page.locator('a[href*="oldid=111"]')}).first().getByRole('button',{name:'Read exact revision'}).click();
+   await page.locator('.reader-toolbar').getByRole('heading',{name:'Mathematics'}).waitFor();
+   await page.evaluate(value=>localStorage.setItem('wikiverse:progress:v1',value),missionBackup);
+   await page.reload({waitUntil:'domcontentloaded'});
    await nav('Discover');
    await page.locator('.topics button').filter({hasText:'Mathematics'}).click();
    // A source-specific handoff selects the original article rather than stale notes.
