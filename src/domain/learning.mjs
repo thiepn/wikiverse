@@ -111,6 +111,33 @@ export function citationComparison(records,ids){
   })),
   sharedUrls,identicalPassages:chosen.every(x=>x.context===chosen[0].context),kind:'literal-original-citation-comparison',graded:false};
 }
+/** An article-wide view of exact recurring external bibliography URLs.
+ * Each occurrence is a separately pinned Wikipedia citation placement.
+ * Shared URLs do NOT imply corroboration, agreement, or independent sources.
+ * Never fetch external documents or infer their contents. */
+export function originalReferenceUsage(records,{query='',reusedOnly=false,limit=50}={}){
+ if(!Number.isInteger(limit)||limit<1||limit>100)throw new Error('Unsupported original reference usage limit');
+ const valid=searchableCitations(records);
+ if(!valid.length)return {total:0,shown:0,truncated:false,groups:[],scope:null,authority:'literal-external-url-occurrence'};
+ const scope=valid[0].article;
+ if(valid.some(r=>!r.article||r.article.language!==scope.language||r.article.pageId!==scope.pageId||r.article.revisionId!==scope.revisionId))
+  throw new Error('Original external references must belong to one pinned Wikipedia revision');
+ const groups=new Map();
+ for(const citation of valid)for(const url of new Set(citation.links)){
+  let parsed;try{parsed=new URL(url);}catch{continue;}
+  if(parsed.protocol!=='https:'||!parsed.hostname)continue;
+  if(!groups.has(url))groups.set(url,{url,citations:[]});
+  groups.get(url).citations.push({id:citation.id,label:citation.label,context:citation.context,sourceRevision:citation.sourceRevision});
+ }
+ const term=String(query||'').trim().normalize('NFC').toLocaleLowerCase().slice(0,120);
+ const matching=[...groups.values()].filter(item=>(!reusedOnly||item.citations.length>1)&&
+  (!term||[item.url,...item.citations.flatMap(c=>[c.id,c.label,c.context])].some(s=>String(s).normalize('NFC').toLocaleLowerCase().includes(term))))
+  .sort((a,b)=>b.citations.length-a.citations.length||a.url.localeCompare(b.url,'en'));
+ return {total:matching.length,shown:Math.min(matching.length,limit),truncated:matching.length>limit,
+  groups:matching.slice(0,limit).map(item=>({...item,occurrences:item.citations.length})),
+  scope:{language:scope.language,pageId:scope.pageId,revisionId:scope.revisionId,title:scope.title},
+  authority:'literal-external-url-occurrence'};
+}
 /** Move through the original unique citation order without guessing missing IDs. */
 export function adjacentCitation(records,currentId,delta){
  if(delta!==1&&delta!==-1)throw new Error('Unsupported original citation navigation');
@@ -121,5 +148,11 @@ export function evidenceReflection({citation,verdict,note}){
  if(!citation?.sourceRevision||!['supports','contradicts','insufficient','unreviewed'].includes(verdict))throw new Error('Select a valid evidence assessment');
  const content=String(note||'').trim();
  if(content.length<10||content.length>2000)throw new Error('Explain your reasoning in at least 10 characters');
- return {id:citation.id,verdict,note:content,source:citation.sourceRevision,links:[...citation.links],at:new Date().toISOString(),graded:false};
+ const a=citation.article;
+ const verified=!!a&&['en','fr','de','ko','tr'].includes(a.language)&&Number.isSafeInteger(a.pageId)&&a.pageId>0&&
+  Number.isSafeInteger(a.revisionId)&&a.revisionId>0&&typeof a.title==='string'&&
+  citation.sourceRevision==='https://'+a.language+'.wikipedia.org/w/index.php?oldid='+a.revisionId+'#'+encodeURIComponent(citation.id);
+ return {id:citation.id,verdict,note:content,source:citation.sourceRevision,links:[...citation.links],
+   ...(verified?{article:{language:a.language,pageId:a.pageId,revisionId:a.revisionId,title:a.title}}:{}),
+   at:new Date().toISOString(),graded:false};
 }

@@ -39,6 +39,33 @@ export function readingJourney(progress,limit=18){
  const list=(progress.readingHistory||[]).filter(x=>{try{return !!checkedArticle(x.article);}catch{return false;}});
  return list.slice(0,Math.max(1,Math.min(75,limit)));
 }
+/** Existing private evidence reviews projected into an inspectable citation journal.
+ * Legacy reviews without page identity retain their exact source URL, but cannot
+ * be rehydrated as a fabricated article. No new persistence or grading authority. */
+export function savedCitationReviews(progress,{query='',verdict='all',limit=80}={}){
+ if(!Number.isInteger(limit)||limit<1||limit>100)throw new Error('Unsupported review journal limit');
+ if(!['all','supports','contradicts','insufficient','unreviewed'].includes(verdict))throw new Error('Unsupported local verdict filter');
+ const term=String(query||'').trim().normalize('NFC').toLocaleLowerCase().slice(0,100);
+ const records=[];
+ for(const review of progress?.evidenceReviews||[]){
+  if(review?.graded!==false||typeof review.id!=='string'||!/^cite_note[-\\w:.]{1,90}$/.test(review.id)||
+   !['supports','contradicts','insufficient','unreviewed'].includes(review.verdict)||
+   typeof review.note!=='string'||review.note.trim().length<10||!Number.isFinite(Date.parse(review.at||''))||
+   typeof review.source!=='string'||!/^https:\\/\\/(en|fr|de|ko|tr)\\.wikipedia\\.org\\/w\\/index\\.php\\?oldid=[1-9]\\d*(?:#[a-zA-Z0-9%_.:%-]+)?$/.test(review.source))continue;
+  let article=null;
+  try{
+   const original=checkedArticle(review.article);
+   if(review.source===sourceRevisionUrl(original)+'#'+encodeURIComponent(review.id))article=original;
+  }catch{}
+  const links=Array.isArray(review.links)?[...new Set(review.links)].filter(u=>{try{return new URL(u).protocol==='https:';}catch{return false;}}).slice(0,4):[];
+  if(verdict!=='all'&&review.verdict!==verdict)continue;
+  if(term&&![review.note,review.id,review.verdict,review.source,article?.title,...links].some(x=>String(x||'').normalize('NFC').toLocaleLowerCase().includes(term)))continue;
+  records.push({id:review.id,source:review.source,verdict:review.verdict,note:review.note,at:review.at,links,article,
+    authority:'private-ungraded-user-assessment'});
+ }
+ records.sort((a,b)=>b.at.localeCompare(a.at));
+ return {total:records.length,shown:Math.min(records.length,limit),truncated:records.length>limit,records:records.slice(0,limit)};
+}
 export function reviewQueue(progress,now=new Date()){
  const keys=new Map(),today=now.getTime();
  const add=(entry)=>{const previous=keys.get(entry.key);if(!previous||entry.originAt>previous.originAt)keys.set(entry.key,entry);};

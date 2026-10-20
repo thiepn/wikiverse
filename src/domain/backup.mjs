@@ -67,7 +67,13 @@ function checkedProgress(value){
  for(const x of clean.mysteries)if((x.source!==undefined&&!wikidata(x.source))||(x.score!==undefined&&(!Number.isFinite(x.score)||x.score<0)))throw new Error('Invalid sourced mystery record');
  for(const x of clean.exploration)if((x.source!==undefined&&!(wikidata(x.source)||x.source==='https://www.wikidata.org/'))||(x.score!==undefined&&!Number.isFinite(x.score))||x.mode!==undefined&&!['geo','chronicle'].includes(x.mode))throw new Error('Invalid sourced exploration record');
  for(const x of clean.learning)if(!['polyglot','detective'].includes(x.mode)||!['source-cloze','citation-identity'].includes(x.kind)||!revision(x.source)||!grade(x)||!validDate(x.at))throw new Error('Invalid original-source learning grade');
- for(const x of clean.evidenceReviews)if(x.graded!==false||!revision(x.source)||typeof x.note!=='string'||x.note.trim().length<10)throw new Error('Citation reflections must remain original-source and ungraded');
+ for(const x of clean.evidenceReviews){
+  if(x.graded!==false||!revision(x.source)||typeof x.note!=='string'||x.note.trim().length<10)throw new Error('Citation reflections must remain original-source and ungraded');
+  if(x.article!==undefined){
+   const article=checkedArticle(x.article);
+   if(x.source!==sourceRevisionUrl(article)+'#'+encodeURIComponent(String(x.id)))throw new Error('Pinned citation review source identity mismatch');
+  }
+ }
  for(const x of clean.historyChallenges)if(!['capsule','pulse'].includes(x.mode)||!['revision-change','pageviews-comparison'].includes(x.kind)||!Array.isArray(x.sourceIds)||!x.sourceIds.length||!grade(x)||!validDate(x.at)||!(revision(x.source)||metrics(x.source)))throw new Error('Invalid historical source grade');
  for(const x of clean.knowledgeAttempts)if(x.mode!=='galaxy'||x.kind!=='wikidata-relationship'||x.scoringAuthority!=='wikidata-property-identity-only'||!Array.isArray(x.qids)||x.qids.length!==2||!x.qids.every(qid)||!/^P[1-9]\d*$/.test(x.propertyId||'')||x.source!=='https://www.wikidata.org/wiki/'+x.qids[0]+'#'+x.propertyId||!grade(x))throw new Error('Invalid Wikidata relationship grade');
  for(const x of clean.vocabulary)if(x.qid!==undefined&&x.qid!==null&&!qid(x.qid))throw new Error('Invalid Wikidata vocabulary QID');

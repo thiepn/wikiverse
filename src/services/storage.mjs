@@ -27,7 +27,7 @@ export function saveVocabulary(progress,entry) {
 }
 export function recordEvidenceReview(progress,entry) {
  if(entry?.graded!==false||!entry?.source)throw new Error('Evidence reflections cannot receive machine grades');
- return {...progress,evidenceReviews:[entry,...(progress.evidenceReviews||[]).filter(v=>v.id!==entry.id)].slice(0,100)};
+ return {...progress,evidenceReviews:[entry,...(progress.evidenceReviews||[]).filter(v=>!(v.id===entry.id&&v.source===entry.source))].slice(0,100)};
 }
 
 export function recordHistoryChallenge(progress,entry){
