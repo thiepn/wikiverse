@@ -1,0 +1,36 @@
+name: WikiVerse source and Chromium qualification
+on:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  source-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Verify exact PR head checkout
+        env:
+          EXPECTED_SHA: ${{ github.event.pull_request.head.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install required packages
+        run: npm install --no-audit --no-fund
+      - name: Source-backed domain and adapter tests
+        run: npm test
+      - name: Syntax and source build
+        run: |
+          npm run check:syntax
+          npm run build
+      - name: Bounded live Wikimedia API compatibility (read-only)
+        run: node scripts/live-source-probe.mjs
+      - name: Chromium desktop and mobile acceptance (mocked Wikimedia upstream)
+        run: |
+          npm install --no-save --no-audit --no-fund playwright-core
+          CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)" node tests/browser.mjs
+      - name: Bounded live Chromium Wikimedia CORS compatibility (read-only)
+        run: CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium)" node scripts/live-browser-probe.mjs

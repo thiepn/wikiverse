@@ -1,0 +1,18 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {canonicalArticle,articleKey,legalTransition,applyRaceClick,generateVerifiedRace,makeMysteryClues,acceptedEntityAnswer,mysteryScore,chooseVerifiedStep,dateKey,progressSummary} from '../src/domain/game.mjs';
+import {readProgress,saveProgress,recordRace,toggleSaved} from '../src/services/storage.mjs';
+const a=canonicalArticle({pageid:1,revid:101,title:'Start'});const b=canonicalArticle({pageid:2,revid:202,title:'Second'});const c=canonicalArticle({pageid:3,revid:303,title:'Target'});
+const graph={Start:{identity:a,links:['Second','Special:Foo']},Second:{identity:b,links:['Target']},Target:{identity:c,links:['Start']}};
+test('article keys include language, ID and revision',()=>assert.equal(articleKey(a),'en:1:101'));
+test('namespace links and non-source links are rejected',()=>{assert.equal(legalTransition(graph.Start,'Special:Foo'),false);assert.equal(legalTransition(graph.Start,'Target'),false);assert.equal(legalTransition(graph.Start,'Second'),true);});
+test('race click requires current source identity and eligible link',()=>{const s={current:a,finished:false};assert.equal(applyRaceClick(s,graph.Start,'Target'),null);assert.equal(applyRaceClick({...s,current:b},graph.Start,'Second'),null);assert.equal(applyRaceClick(s,graph.Start,'Second').target,'Second');});
+test('race generation proves a two hop source path',async()=>{const race=await generateVerifiedRace('Start','daily',async x=>graph[x]);assert.equal(race.proof.length,3);assert.equal(race.target.pageId,3);assert.equal(race.ranked,false);});
+test('race generation refuses invented transitions',async()=>{await assert.rejects(()=>generateVerifiedRace('Start','daily',async x=>x==='Second'?{identity:b,links:[]}:graph[x]));});
+test('stable deterministic link selection',()=>assert.equal(chooseVerifiedStep(['Beta','Alpha'],new Set(),'seed'),chooseVerifiedStep(['Alpha','Beta'],new Set(),'seed')));
+test('ambiguous or missing clues cannot create scored mystery',()=>assert.deepEqual(makeMysteryClues({id:'Q1',claims:{}},{}),[]));
+test('Wikidata clues originate from exact properties',()=>{const entity={id:'Q10',claims:{P106:[{mainsnak:{datavalue:{value:{id:'Q5'}}}}],P19:[{mainsnak:{datavalue:{value:{id:'Q6'}}}}],P569:[{mainsnak:{datavalue:{value:{time:'+1867-11-07T00:00:00Z',precision:11}}}}]}};const clues=makeMysteryClues(entity,{Q5:'physicist',Q6:'Warsaw'});assert.equal(clues.length,3);assert.deepEqual(clues.map(c=>c.property),['P106','P569','P19']);});
+test('aliases accepted without partial name guess',()=>{const e={labels:{en:'Marie Curie'},aliases:{en:['Maria Skłodowska-Curie']}};assert.equal(acceptedEntityAnswer(e,'maria skłodowska-curie'),true);assert.equal(acceptedEntityAnswer(e,'Curie'),false);});
+test('revealed clues and wrong guesses decrease score',()=>{assert.ok(mysteryScore(1,0)>mysteryScore(3,1));assert.ok(mysteryScore(4,20)>=20);});
+test('local-only persistence validates and recovers',()=>{const m=new Map();const local={getItem:k=>m.get(k)||null,setItem:(k,v)=>m.set(k,v)};const state=readProgress(local);const updated=recordRace(state,{clicks:3});saveProgress(updated,local);assert.equal(readProgress(local).races.length,1);m.set('wikiverse:progress:v1','bad');assert.equal(readProgress(local).races.length,0);});
+test('bookmarks use canonical page IDs',()=>{const state=readProgress({getItem:()=>null});assert.equal(progressSummary(toggleSaved(state,a)).discoveries,1);assert.equal(progressSummary(toggleSaved(toggleSaved(state,a),a)).discoveries,0);});
+test('daily keys use UTC not locale',()=>assert.equal(dateKey(new Date('2026-10-16T23:59:00Z')),'2026-10-16'));

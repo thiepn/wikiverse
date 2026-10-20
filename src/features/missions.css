@@ -1,0 +1,30 @@
+.missions,.missions *{min-width:0}.missions .missions-intro{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px 0}.missions .missions-intro>div,.missions .missions-panel{background:#172732;border:1px solid #365261;padding:22px}.missions .missions-intro small{font-size:14px;letter-spacing:.1em;color:#9fb7c3}.missions .missions-intro strong{display:block;font-size:32px;color:#b7e5e4;margin:10px 0 4px}.missions .missions-intro span{font-size:14px;color:#b2c4d0}.missions .missions-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,1fr);gap:14px}.missions .missions-panel{margin-bottom:16px}.missions .missions-panel h2{margin:0 0 8px}.missions .missions-panel>p{font-size:14px;color:#b0c4ce;line-height:1.6}.missions .mission-item{display:grid;grid-template-columns:36px minmax(0,1fr) 90px;align-items:center;gap:10px;border-top:1px solid #354c59;padding:13px 0}.missions .mission-marker{display:grid;place-items:center;color:#9fd2d5;font-weight:800;border:1px solid #527780;height:32px}.missions .mission-item.completed .mission-marker{background:#2c665d;color:#dbf5ec}.missions .mission-item strong{display:block;font-size:14px}.missions .mission-item small{display:block;margin:4px 0;color:#9cb1bc;font-size:14px}.missions button{background:#264651;border:1px solid #4c6a76;color:#d5f2f3;padding:9px 11px;min-height:42px;border-radius:2px;cursor:pointer;font-weight:650}.missions button:hover{background:#345a66}.missions .mission-week{display:flex;gap:9px;justify-content:space-around;height:200px;margin:20px 0}.missions .mission-day{display:flex;align-items:center;flex-direction:column;justify-content:flex-end;flex:1;gap:5px}.missions .mission-bar-slot{height:130px;width:100%;display:flex;align-items:end;background:#1a3341;max-width:35px}.missions .mission-bar{width:100%;background:#89d7d2;min-height:0}.missions .mission-day strong{font-size:14px}.missions .mission-day span{font-size:14px;color:#a8bdc8}.missions .missions-caveat{font-size:14px!important}.missions .mission-achievements{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-top:16px}.missions .mission-achievement{padding:15px;border:1px solid #405e6a;background:#1c313d}.missions .mission-achievement.earned{border-color:#7aaea4;background:#1e403f}.missions .mission-achievement strong{display:block;margin:9px 0;font-size:15px}.missions .mission-achievement p{font-size:14px;min-height:45px}.missions .mission-achievement>span{font-size:14px;color:#a9c9ce}.missions .mission-track{height:6px;background:#34525d;margin-top:11px}.missions .mission-track>div{height:100%;background:#a4d9d3}@media(max-width:850px){.missions .missions-grid{grid-template-columns:minmax(0,1fr)}.missions .mission-achievements{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:520px){.missions .missions-intro>div,.missions .missions-panel{padding:15px}.missions .mission-achievements{grid-template-columns:minmax(0,1fr)}.missions .mission-item{grid-template-columns:30px minmax(0,1fr) 76px;gap:7px}.missions .mission-item button{padding:8px 6px;font-size:14px}.missions .missions-intro strong{font-size:26px}}
+/* W12: source-led daily research, no decorative microcopy */
+.missions .missions-route-head,.missions .missions-week-head,.missions .missions-evidence-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.missions .missions-route-head h2,.missions .missions-week-head h2{margin-bottom:12px}
+.missions .missions-route-head button,.missions .missions-week-head button{font-size:14px}
+.missions .mission-item{grid-template-columns:36px minmax(0,1fr) minmax(104px,auto)}
+.missions .mission-item.active{border-left:3px solid #87c6c5;padding-left:8px}
+.missions .mission-controls{display:flex;gap:6px;flex-wrap:wrap;justify-content:end}
+.missions .mission-controls button{font-size:14px}
+.missions .mission-controls button[aria-pressed=true]{background:#335e64;border-color:#94d3d1}
+.missions .mission-record-count{display:block;margin-top:8px;font-size:14px;color:#b2ced3}
+.missions .mission-day{border:1px solid transparent;background:transparent;min-height:0;padding:3px 2px 8px;border-radius:0;min-width:0}
+.missions .mission-day[aria-pressed=true]{border-color:#8bcac5;background:#284b52}
+.missions .mission-day:hover{background:#294753}
+.missions .missions-evidence{margin-top:2px}
+.missions .missions-evidence-head h2{font-size:21px;margin:0 0 9px}
+.missions .missions-evidence-head p{font-size:14px;color:#bad1d8;margin:0}
+.missions .missions-evidence-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:16px}
+.missions .missions-evidence-record{border:1px solid #456773;background:#1d3643;padding:16px;min-width:0}
+.missions .missions-evidence-title{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.missions .missions-evidence-title h3{font-size:17px;margin:0}
+.missions .missions-evidence-title time{font-size:14px;color:#b5ccd4}
+.missions .missions-evidence-links,.missions .missions-evidence-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px;align-items:center}
+.missions .missions-evidence-links a,.missions .missions-evidence-links span{font-size:14px;overflow-wrap:anywhere}
+.missions .missions-evidence-actions button{font-size:14px}
+.missions .missions-source-ids{display:grid;gap:6px;padding-top:13px;color:#c5dce0}
+.missions .missions-source-ids strong,.missions .missions-source-ids span{font-size:14px;overflow-wrap:anywhere}
+.missions .missions-evidence>p{margin-top:13px}
+@media(max-width:1050px){.missions .missions-evidence-list{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:590px){.missions .mission-item{grid-template-columns:30px minmax(0,1fr)}.missions .mission-controls{grid-column:2;justify-content:start}.missions .missions-evidence-record{padding:13px}.missions .mission-week{gap:3px}.missions .mission-day{font-size:14px}}
