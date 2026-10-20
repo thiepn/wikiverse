@@ -201,6 +201,24 @@ try{
    await page.getByText(/ARCHIVED SOURCE REVIEW/).waitFor();
    await page.locator('.linklab-sources').getByRole('button',{name:/Read pinned revision/}).first().click();
    await page.locator('.reader-toolbar').getByRole('heading',{name:'Mathematics'}).waitFor();
+   // W11 continuity: a missed exact subject is stored and reopens the SAME
+   // verified target in Study Desk rather than a random original link.
+   await nav('Link Lab');
+   await page.getByRole('button',{name:/Generate sourced question/}).click();
+   await page.locator('.linklab-link-set>div').first().waitFor();
+   await page.locator('#linklab-find').fill('Biology');
+   await page.waitForFunction(()=>document.querySelectorAll('.linklab-link-set>div').length===1);
+   await page.locator('.linklab-link-set').getByRole('button',{name:/Practice this link/}).click();
+   await page.getByRole('heading',{name:/Which pinned source links to Biology/}).waitFor();
+   await page.locator('.linklab-choices button').nth(0).click();
+   await page.getByText('Incorrect source classification.').waitFor();
+   await nav('Study Desk');
+   await page.getByRole('button',{name:/Review queue/}).click();
+   const originalLinkReview=page.locator('.study-review').filter({hasText:'Recheck original link: Biology'});
+   await originalLinkReview.getByRole('button',{name:/Practice source again/}).click();
+   await page.getByRole('button',{name:/Revisit original pinned link evidence/}).click();
+   await page.getByRole('heading',{name:/Which pinned source links to Biology/}).waitFor();
+   await page.locator('.linklab-choices button').first().waitFor();
    await nav('WikiMystery');await page.getByRole('button',{name:/Start mystery/}).click();
    const qid=await page.locator('.mystery-grid .eyebrow').first().textContent();
    const answer=idToTitle[(qid||'').match(/Q\d+/)?.[0]];

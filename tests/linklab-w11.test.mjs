@@ -76,3 +76,23 @@ test('W11 missed origin answers enter authentic v1 study review with optional or
  const inspected=await inspectProgressBackup(archive);
  assert.equal(inspected.progress.linkLab[0].subject,'Astronomy');
 });
+
+test('W11 archived missed original source target revalidates pinned article identities and exact title',async()=>{
+ const {replayLinkAudit}=await import('../src/services/linklab.mjs');
+ const {clearApiCache}=await import('../src/services/wikimedia.mjs');
+ const original=globalThis.fetch;clearApiCache();
+ globalThis.fetch=async url=>{
+  const id=Number(new URL(url).searchParams.get('oldid'));const source=id===111?a:b;
+  return {ok:true,status:200,json:async()=>({parse:{title:source.identity.title,pageid:source.identity.pageId,revid:id,
+    text:'<p>Original Wikipedia article excerpt.</p>',links:source.links.map(title=>({ns:0,'*':title}))}})};
+ };
+ try{
+  const stored={article:a.identity,contrast:b.identity,subject:'Astronomy',questionKind:'wikipedia-link-origin'};
+  const replay=await replayLinkAudit(stored);
+  assert.equal(replay.origin.subject,'Astronomy');assert.equal(replay.origin.answer,'primary');
+  assert.deepEqual([replay.origin.primary.revisionId,replay.origin.contrast.revisionId],[111,222]);
+  await assert.rejects(()=>replayLinkAudit({...stored,subject:'A made-up hyperlink'}),/absent/);
+  const legacy=await replayLinkAudit({article:a.identity,contrast:b.identity});
+  assert.ok(legacy.origin.subject);assert.equal(legacy.question.primary.revisionId,111);
+ }finally{globalThis.fetch=original;clearApiCache();}
+});
