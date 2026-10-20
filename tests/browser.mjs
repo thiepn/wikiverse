@@ -412,7 +412,7 @@ try{
      assert.ok(overflow.innerWidth<=(overflow.visualWidth||412)+2,'Mobile article layout expands beyond visual viewport');
    }
    await page.getByRole('button',{name:/Save private review/}).click();
-   await page.getByText(/Review saved locally/).waitFor();
+   await page.getByText(/Private review recorded for this exact citation and Wikipedia revision/).waitFor();
    await nav('WikiPulse');
    await page.locator('.hist-metric').first().waitFor();
    assert.equal(await page.locator('.hist-metric').count(),2);
