@@ -48,10 +48,10 @@ export function savedCitationReviews(progress,{query='',verdict='all',limit=80}=
  const term=String(query||'').trim().normalize('NFC').toLocaleLowerCase().slice(0,100);
  const records=[];
  for(const review of progress?.evidenceReviews||[]){
-  if(review?.graded!==false||typeof review.id!=='string'||!/^cite_note[-\\w:.]{1,90}$/.test(review.id)||
+  if(review?.graded!==false||typeof review.id!=='string'||!/^cite_note[-\w:.]{1,90}$/.test(review.id)||
    !['supports','contradicts','insufficient','unreviewed'].includes(review.verdict)||
    typeof review.note!=='string'||review.note.trim().length<10||!Number.isFinite(Date.parse(review.at||''))||
-   typeof review.source!=='string'||!/^https:\\/\\/(en|fr|de|ko|tr)\\.wikipedia\\.org\\/w\\/index\\.php\\?oldid=[1-9]\\d*(?:#[a-zA-Z0-9%_.:%-]+)?$/.test(review.source))continue;
+   typeof review.source!=='string'||!/^https:\/\/(en|fr|de|ko|tr)\.wikipedia\.org\/w\/index\.php\?oldid=[1-9]\d*(?:#[a-zA-Z0-9%_.:%-]+)?$/.test(review.source))continue;
   let article=null;
   try{
    const original=checkedArticle(review.article);
